@@ -1,0 +1,9 @@
+{
+  "name": "alphashield-root",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "^0.15.0"
+  }
+}

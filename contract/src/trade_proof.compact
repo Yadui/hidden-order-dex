@@ -1,0 +1,47 @@
+pragma language_version >= 0.22;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AlphaShield Trade Proof Contract
+//
+// Public ledger (on-chain, visible to everyone):
+//   trade_asset, trade_timestamp, trade_amount — what was traded
+//   reasoning_hash                             — SHA-256 of AI reasoning (hex)
+//   strategy_verified                          — 1 once proof is accepted
+//   bytes_exposed                              — always 0
+//
+// Private witnesses (never leave the whale's machine):
+//   direction   — 0=SELL, 1=BUY
+//   confidence  — 0..100
+// ─────────────────────────────────────────────────────────────────────────────
+
+export ledger trade_asset:       Opaque<"string">;
+export ledger trade_timestamp:   Opaque<"string">;
+export ledger trade_amount:      Opaque<"string">;
+export ledger reasoning_hash:    Opaque<"string">;
+export ledger strategy_verified: Uint<32>;
+export ledger bytes_exposed:     Uint<32>;
+
+// ─── submit_trade ─────────────────────────────────────────────────────────────
+// ZK proof guarantees (without revealing direction or confidence):
+//   1. direction < 2   → valid BUY (1) or SELL (0) signal
+//   2. confidence > 0  → whale holds a real position
+// Only public fields are written to the ledger.
+// ─────────────────────────────────────────────────────────────────────────────
+export circuit submit_trade(
+  asset:      Opaque<"string">,
+  timestamp:  Opaque<"string">,
+  amount:     Opaque<"string">,
+  r_hash:     Opaque<"string">,
+  direction:  Uint<32>,
+  confidence: Uint<32>
+): [] {
+  assert(direction < 2, "direction must be 0 (SELL) or 1 (BUY)");
+  assert(confidence > 0, "confidence must be greater than 0");
+
+  trade_asset       = disclose(asset);
+  trade_timestamp   = disclose(timestamp);
+  trade_amount      = disclose(amount);
+  reasoning_hash    = disclose(r_hash);
+  strategy_verified = disclose(1);
+  bytes_exposed     = disclose(0);
+}

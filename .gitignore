@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.pyc
+
+# Node / JS
+node_modules/
+dist/
+.dist/
+*.local
+
+# Vite
+frontend/dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+*.example.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Midnight local dev accounts (may contain secrets)
+midnight-local-dev/accounts.json

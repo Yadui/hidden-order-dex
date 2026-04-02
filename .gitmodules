@@ -1,0 +1,3 @@
+[submodule "midnight-local-dev"]
+	path = midnight-local-dev
+	url = https://github.com/midnightntwrk/midnight-local-dev

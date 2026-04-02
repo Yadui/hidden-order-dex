@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "WebSearch",
+      "mcp__Claude_Preview__preview_start",
+      "Read(//Users/abhinavyadav/.volta/bin/**)",
+      "Read(//Users/abhinavyadav/.fnm/**)",
+      "Bash(command -v node)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\")",
+      "WebFetch(domain:docs.midnight.network)",
+      "WebFetch(domain:hackmd.io)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(compact --help)",
+      "Bash(compact list:*)",
+      "Bash(compact update:*)"
+    ]
+  }
+}
