@@ -584,9 +584,20 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">
-                  {tradeResult.zkMode === 'real' ? 'On-Chain Tx Hash' : 'ZK Proof Hash (mock)'}
-                </p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-slate-500">
+                    {tradeResult.zkMode === 'real' && tradeResult.contractAddress
+                      ? 'On-Chain Tx Hash'
+                      : tradeResult.zkMode === 'real'
+                      ? 'ZK Proof Hash'
+                      : 'ZK Proof Hash (mock)'}
+                  </p>
+                  {tradeResult.zkMode === 'real' && !tradeResult.contractAddress && (
+                    <span className="text-xs text-amber-500/80 font-mono">
+                      local proof · testnet submission pending
+                    </span>
+                  )}
+                </div>
                 <p className={`font-mono text-xs break-all p-2 rounded ${
                   midnightEnabled ? 'bg-violet-950/60 text-violet-300' : 'bg-red-950/40 text-red-300'
                 }`}>
