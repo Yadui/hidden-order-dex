@@ -11,6 +11,27 @@ const COINGECKO_IDS = {
   MATIC:'matic-network',
 }
 
+// ── RSI-14 computed from daily closing prices (Wilder smoothing) ────────────
+function computeRSI(closingPrices, period = 14) {
+  if (closingPrices.length < period + 1) return 50
+  const changes = closingPrices.slice(1).map((p, i) => p - closingPrices[i])
+  let avgGain = 0, avgLoss = 0
+  for (let i = 0; i < period; i++) {
+    if (changes[i] > 0) avgGain += changes[i]
+    else avgLoss += Math.abs(changes[i])
+  }
+  avgGain /= period
+  avgLoss /= period
+  for (let i = period; i < changes.length; i++) {
+    const gain = changes[i] > 0 ? changes[i] : 0
+    const loss = changes[i] < 0 ? Math.abs(changes[i]) : 0
+    avgGain = (avgGain * (period - 1) + gain) / period
+    avgLoss = (avgLoss * (period - 1) + loss) / period
+  }
+  if (avgLoss === 0) return 100
+  return Math.round(100 - 100 / (1 + avgGain / avgLoss))
+}
+
 const ZK_STEPS = [
   'Running circuit locally…',
   'Building witness data…',
@@ -51,23 +72,48 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
   const [zkStep,         setZkStep]         = useState(0)
   const [tradeError,     setTradeError]     = useState(null)
   const [livePrice,      setLivePrice]      = useState(null)
+  const [liveRsi,        setLiveRsi]        = useState(null)
+  const [liveVolume,     setLiveVolume]     = useState(null)
   const [fetchingPrice,  setFetchingPrice]  = useState(false)
 
-  // ── Live price feed (CoinGecko, no API key needed) ─────────────────────────
+  // ── Live market data (CoinGecko, no API key needed) ───────────────────────
+  // Fetches current price, RSI-14 (from daily OHLC), and 24h volume change %
   async function fetchLivePrice(a) {
     setFetchingPrice(true)
     try {
       const cgId = COINGECKO_IDS[a]
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`,
-        { signal: AbortSignal.timeout(5000) }
-      )
-      if (!res.ok) throw new Error('CoinGecko error')
-      const data = await res.json()
-      const fetched = data[cgId]?.usd
-      if (fetched) {
-        setLivePrice(fetched)
-        setPrice(fetched)
+      // Parallel: exact current price + 14-day market chart for RSI & volume
+      const [priceRes, chartRes] = await Promise.all([
+        fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`,
+          { signal: AbortSignal.timeout(8000) }),
+        fetch(`https://api.coingecko.com/api/v3/coins/${cgId}/market_chart?vs_currency=usd&days=14&interval=daily`,
+          { signal: AbortSignal.timeout(8000) }),
+      ])
+
+      if (priceRes.ok) {
+        const priceData = await priceRes.json()
+        const fetched = priceData[cgId]?.usd
+        if (fetched) { setLivePrice(fetched); setPrice(fetched) }
+      }
+
+      if (chartRes.ok) {
+        const chartData = await chartRes.json()
+        // RSI-14 from daily closing prices
+        const closes = (chartData.prices ?? []).map(([, p]) => p)
+        if (closes.length >= 15) {
+          const computedRsi = computeRSI(closes)
+          setLiveRsi(computedRsi)
+          setRsi(computedRsi)
+        }
+        // 24h volume change % from last two daily volume data points
+        const vols = (chartData.total_volumes ?? []).map(([, v]) => v)
+        if (vols.length >= 2) {
+          const prev = vols[vols.length - 2]
+          const curr = vols[vols.length - 1]
+          const pct = prev > 0 ? +((curr - prev) / prev * 100).toFixed(1) : 0
+          setLiveVolume(pct)
+          setVolumeChange(pct)
+        }
       }
     } catch {
       // silently ignore — user can still type manually
@@ -76,7 +122,7 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
     }
   }
 
-  // Fetch live price when asset changes (on mount + change)
+  // Fetch all live market data when asset changes (on mount + change)
   useEffect(() => { fetchLivePrice(asset) }, [asset])
 
   const accentBorder = midnightEnabled ? 'border-violet-800/60' : 'border-red-800/60'
@@ -98,6 +144,9 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
     setTradeResult(null)
     setSignalError(null)
     setTradeError(null)
+    setLivePrice(null)
+    setLiveRsi(null)
+    setLiveVolume(null)
   }
 
   // ── Generate signal ─────────────────────────────────────────────────────────
@@ -149,17 +198,27 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
         body: JSON.stringify({
           asset, amount: Number(amount), price: Number(price), signal,
           proof_override: {
-            proof_hash:       proofResult.proofHash,
-            contract_address: proofResult.contractAddress,
-            tx_hash:          proofResult.txHash,
-            reasoning_hash:   proofResult.reasoningHash,
-            zk_mode:          proofResult.mode,
+            proof_hash:         proofResult.proofHash,
+            contract_address:   proofResult.contractAddress,
+            tx_hash:            proofResult.txHash,
+            reasoning_hash:     proofResult.reasoningHash,
+            zk_mode:            proofResult.mode,
+            proof_bytes:        proofResult.proofBytes ?? null,
+            proof_preimage:     proofResult.proofPreimage ?? null,
+            proof_size_bytes:   proofResult.proofSizeBytes ?? null,
+            proof_generated_ms: proofResult.proofGeneratedMs ?? null,
           },
         }),
       })
       if (!res.ok) throw new Error(`Backend error: ${res.status}`)
       const data = await res.json()
-      setTradeResult({ ...data, zkMode: proofResult.mode, contractAddress: proofResult.contractAddress })
+      setTradeResult({
+        ...data,
+        zkMode:           proofResult.mode,
+        contractAddress:  proofResult.contractAddress,
+        proofSizeBytes:   proofResult.proofSizeBytes,
+        proofGeneratedMs: proofResult.proofGeneratedMs,
+      })
       onTradeExecuted()
     } catch (e) {
       setTradeError(e.message)
@@ -246,15 +305,26 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
 
           {/* RSI */}
           <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 block">
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-2">
               RSI: <span className={`font-mono font-bold ${midnightEnabled ? 'text-violet-300' : 'text-red-300'}`}>{rsi}</span>
-              <span className="ml-2 text-slate-600">
+              <span className="text-slate-600">
                 {rsi < 30 ? '(Oversold)' : rsi > 70 ? '(Overbought)' : '(Neutral)'}
               </span>
+              {liveRsi !== null && (
+                <span className="text-emerald-500 text-xs font-mono font-bold">● LIVE</span>
+              )}
+              <button
+                onClick={() => fetchLivePrice(asset)}
+                disabled={fetchingPrice}
+                className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
+                title="Refresh live RSI"
+              >
+                <RefreshCw size={11} className={fetchingPrice ? 'animate-spin' : ''} />
+              </button>
             </label>
             <input
               type="range" min="0" max="100" value={rsi}
-              onChange={(e) => setRsi(Number(e.target.value))}
+              onChange={(e) => { setRsi(Number(e.target.value)); setLiveRsi(null) }}
               className="w-full h-2 rounded cursor-pointer"
               style={{ accentColor: midnightEnabled ? '#7C3AED' : '#DC2626' }}
             />
@@ -265,11 +335,24 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
 
           {/* Volume */}
           <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 block">Volume Change (%)</label>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-2">
+              Volume Change (%)
+              {liveVolume !== null && (
+                <span className="text-emerald-500 text-xs font-mono font-bold">● LIVE</span>
+              )}
+              <button
+                onClick={() => fetchLivePrice(asset)}
+                disabled={fetchingPrice}
+                className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
+                title="Refresh live volume"
+              >
+                <RefreshCw size={11} className={fetchingPrice ? 'animate-spin' : ''} />
+              </button>
+            </label>
             <input
               type="number"
               value={volumeChange}
-              onChange={(e) => setVolumeChange(e.target.value)}
+              onChange={(e) => { setVolumeChange(e.target.value); setLiveVolume(null) }}
               step="0.1"
               className={`w-full bg-slate-900 border ${accentBorder} rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
                 midnightEnabled ? 'focus:ring-violet-600' : 'focus:ring-red-600'
@@ -483,6 +566,22 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
                   <span className="text-slate-500">Strategy Exposed</span>
                   <span className="text-emerald-400 font-bold">0 bytes</span>
                 </div>
+                {tradeResult.zkMode === 'real' && tradeResult.proofSizeBytes && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">ZK Proof Size</span>
+                    <span className="text-violet-300 font-bold">{tradeResult.proofSizeBytes.toLocaleString()} bytes</span>
+                  </div>
+                )}
+                {tradeResult.zkMode === 'real' && tradeResult.proofGeneratedMs && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Proof Generated In</span>
+                    <span className="text-violet-300 font-bold">
+                      {tradeResult.proofGeneratedMs < 1000
+                        ? `${tradeResult.proofGeneratedMs}ms`
+                        : `${(tradeResult.proofGeneratedMs / 1000).toFixed(1)}s`}
+                    </span>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-1">

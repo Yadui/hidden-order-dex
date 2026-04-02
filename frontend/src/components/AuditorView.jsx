@@ -103,13 +103,47 @@ function ProofModal({ proof, onClose }) {
         </div>
 
         {/* Status banner */}
-        <div className="bg-emerald-950/50 border border-emerald-700 rounded-lg p-3 flex items-center gap-2">
-          <span className="text-emerald-400 text-xl">✅</span>
-          <div>
-            <p className="text-emerald-300 font-bold text-sm">VERIFIED</p>
-            <p className="text-emerald-600 text-xs">Cryptographic proof validated by Midnight Network</p>
+        {proof.verifyStatus === 'checking' ? (
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex items-center gap-2">
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full" />
+            <div>
+              <p className="text-violet-300 font-bold text-sm">Verifying…</p>
+              <p className="text-slate-500 text-xs">Sending preimage to Midnight proof server /check</p>
+            </div>
           </div>
-        </div>
+        ) : proof.verifyStatus === 'valid' ? (
+          <div className="bg-emerald-950/50 border border-emerald-700 rounded-lg p-3 flex items-center gap-2">
+            <span className="text-emerald-400 text-xl">✅</span>
+            <div>
+              <p className="text-emerald-300 font-bold text-sm">CRYPTOGRAPHICALLY VERIFIED</p>
+              <p className="text-emerald-600 text-xs">Midnight proof server confirmed circuit satisfiability</p>
+            </div>
+          </div>
+        ) : proof.verifyStatus === 'invalid' ? (
+          <div className="bg-red-950/50 border border-red-700 rounded-lg p-3 flex items-center gap-2">
+            <span className="text-red-400 text-xl">❌</span>
+            <div>
+              <p className="text-red-300 font-bold text-sm">INVALID PROOF</p>
+              <p className="text-red-600 text-xs">Proof server rejected the circuit witness</p>
+            </div>
+          </div>
+        ) : proof.verifyStatus === 'mock' ? (
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex items-center gap-2">
+            <span className="text-slate-400 text-xl">🔵</span>
+            <div>
+              <p className="text-slate-300 font-bold text-sm">MOCK HASH PROOF</p>
+              <p className="text-slate-500 text-xs">Enable Midnight Network for real ZK verification</p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-emerald-950/50 border border-emerald-700 rounded-lg p-3 flex items-center gap-2">
+            <span className="text-emerald-400 text-xl">✅</span>
+            <div>
+              <p className="text-emerald-300 font-bold text-sm">VERIFIED</p>
+              <p className="text-emerald-600 text-xs">Cryptographic proof validated by Midnight Network</p>
+            </div>
+          </div>
+        )}
 
         {/* Proof details */}
         <div className="space-y-3">
@@ -133,15 +167,37 @@ function ProofModal({ proof, onClose }) {
         {/* On-chain fields (only when real ZK) */}
         {proof.zk_mode === 'real' && (
           <div className="space-y-2 border-t border-slate-800 pt-3">
-            {proof.contract_address && (
-              <ProofRow label="Contract Address" value={proof.contract_address} mono highlight />
-            )}
-            {proof.tx_hash && (
-              <ProofRow label="Tx Hash" value={proof.tx_hash} mono highlight />
-            )}
             {proof.reasoning_hash && (
               <ProofRow label="Reasoning Hash (SHA-256)" value={proof.reasoning_hash} mono />
             )}
+            {proof.proof_size_bytes && (
+              <ProofRow label="ZK Proof Size" value={`${proof.proof_size_bytes.toLocaleString()} bytes`} highlight />
+            )}
+            {proof.proof_generated_ms && (
+              <ProofRow
+                label="Proof Generated In"
+                value={proof.proof_generated_ms < 1000
+                  ? `${proof.proof_generated_ms}ms`
+                  : `${(proof.proof_generated_ms / 1000).toFixed(1)}s`}
+                highlight
+              />
+            )}
+          </div>
+        )}
+
+        {/* Raw ZK proof bytes — real proofs only */}
+        {proof.zk_mode === 'real' && proof.proof_bytes && (
+          <div className="border-t border-slate-800 pt-3 space-y-2">
+            <p className="text-xs text-slate-500 uppercase tracking-wide">Raw ZK Proof (base64)</p>
+            <div className="bg-slate-950 border border-violet-900/40 rounded-lg p-3 max-h-28 overflow-y-auto">
+              <p className="font-mono text-xs text-violet-400/70 break-all leading-relaxed select-all">
+                {proof.proof_bytes}
+              </p>
+            </div>
+            <p className="text-xs text-slate-600 font-mono">
+              Prefix: {atob(proof.proof_bytes.slice(0, 12)).split('').map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('')}
+              {' '}= "<span className="text-slate-400">{atob(proof.proof_bytes.slice(0, 12)).replace(/[^\x20-\x7e]/g, '·')}</span>"
+            </p>
           </div>
         )}
 
@@ -186,14 +242,38 @@ function ProofRow({ label, value, mono, highlight, highlight2 }) {
 export default function AuditorView({ trades }) {
   const [selectedProof, setSelectedProof] = useState(null)
   const [loadingId, setLoadingId] = useState(null)
+  const [verifyingId, setVerifyingId] = useState(null)
 
   async function verifyProof(trade) {
     setLoadingId(trade.trade_id)
     try {
+      // Fetch proof data first
       const res = await fetch(`/api/proof/${trade.trade_id}`)
       if (!res.ok) throw new Error('Not found')
       const data = await res.json()
-      setSelectedProof(data)
+
+      // Kick off cryptographic verification in parallel if real proof exists
+      if (data.zk_mode === 'real' && data.proof_preimage) {
+        setSelectedProof({ ...data, verifyStatus: 'checking' })
+        setLoadingId(null)
+        setVerifyingId(trade.trade_id)
+        try {
+          const vRes = await fetch(`/api/verify-proof/${trade.trade_id}`, { method: 'POST' })
+          const vData = await vRes.json()
+          setSelectedProof(prev => prev ? {
+            ...prev,
+            verifyStatus: vData.valid === true ? 'valid' : vData.valid === false ? 'invalid' : 'no_preimage',
+            verifyMode: vData.mode,
+            verifyMessage: vData.message,
+          } : null)
+        } catch (e) {
+          setSelectedProof(prev => prev ? { ...prev, verifyStatus: 'error', verifyMessage: e.message } : null)
+        } finally {
+          setVerifyingId(null)
+        }
+      } else {
+        setSelectedProof({ ...data, verifyStatus: data.zk_mode === 'real' ? 'no_preimage' : 'mock' })
+      }
     } catch (e) {
       alert(`Failed to load proof: ${e.message}`)
     } finally {
@@ -255,15 +335,15 @@ export default function AuditorView({ trades }) {
                   <td className="px-5 py-3">
                     <button
                       onClick={() => verifyProof(trade)}
-                      disabled={loadingId === trade.trade_id}
+                      disabled={loadingId === trade.trade_id || verifyingId === trade.trade_id}
                       className="flex items-center gap-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
                     >
-                      {loadingId === trade.trade_id ? (
+                      {(loadingId === trade.trade_id || verifyingId === trade.trade_id) ? (
                         <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
                       ) : (
                         <Search size={12} />
                       )}
-                      Verify Proof
+                      {verifyingId === trade.trade_id ? 'Verifying…' : 'Verify Proof'}
                     </button>
                   </td>
                 </tr>

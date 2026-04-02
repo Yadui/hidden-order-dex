@@ -1,8 +1,52 @@
-import { TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle } from 'lucide-react'
-import { useState } from 'react'
+import { TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Zap, Bot } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 
-function TradeCard({ trade, midnightEnabled }) {
+// ── MEV Bot simulator — shown when Midnight is OFF ──────────────────────────
+function FrontRunAttack({ trade }) {
+  const [phase, setPhase] = useState(0)
+  // phases: 0=scanning, 1=detected, 2=copying, 3=executed_ahead
+  useEffect(() => {
+    const timings = [800, 600, 700]
+    let t = 0
+    const timers = timings.map((delay, i) => {
+      t += delay
+      return setTimeout(() => setPhase(i + 1), t)
+    })
+    return () => timers.forEach(clearTimeout)
+  }, [trade.trade_id])
+
+  const lines = [
+    { phase: 0, color: 'text-slate-500', text: '> MEV bot scanning mempool...' },
+    { phase: 1, color: 'text-red-400',   text: `> ⚠️  WHALE SIGNAL DETECTED: ${trade.asset} ${trade.signal?.direction}` },
+    { phase: 2, color: 'text-amber-400', text: `> Copying trade: ${trade.amount} ${trade.asset} @ $${Number(trade.price).toLocaleString()}` },
+    { phase: 3, color: 'text-red-300 font-bold', text: `> ✅ FRONT-RUN EXECUTED — whale order will fill AFTER bot` },
+  ]
+
+  return (
+    <div className="mt-3 bg-red-950/40 border border-red-700/60 rounded-lg p-3 space-y-1">
+      <p className="text-red-400 text-xs font-bold flex items-center gap-1.5 mb-2">
+        <Bot size={12} /> MEV Front-Running Attack
+      </p>
+      {lines.map((l, i) => (
+        <p key={i} className={`font-mono text-xs transition-all duration-300 ${i <= phase ? l.color : 'text-slate-800'}`}>
+          {l.text}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function TradeCard({ trade, midnightEnabled, isNew }) {
   const [copied, setCopied] = useState(false)
+  const [flash, setFlash] = useState(isNew)
+
+  useEffect(() => {
+    if (isNew) {
+      setFlash(true)
+      const t = setTimeout(() => setFlash(false), 1600)
+      return () => clearTimeout(t)
+    }
+  }, [isNew])
 
   function handleCopy() {
     const text = [
@@ -21,10 +65,11 @@ function TradeCard({ trade, midnightEnabled }) {
 
   const cardBg = midnightEnabled ? 'bg-[#10101f]' : 'bg-[#150808]'
   const accentBorder = midnightEnabled ? 'border-violet-800/50' : 'border-red-800/50'
+  const flashRing = flash ? (midnightEnabled ? 'ring-2 ring-violet-400 shadow-lg shadow-violet-500/30' : 'ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/20') : ''
   const ts = new Date(trade.timestamp).toLocaleTimeString()
 
   return (
-    <div className={`rounded-xl border ${accentBorder} ${cardBg} p-5 space-y-3 transition-all duration-500`}>
+    <div className={`rounded-xl border ${accentBorder} ${cardBg} ${flashRing} p-5 space-y-3 transition-all duration-500`}>
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -107,6 +152,9 @@ function TradeCard({ trade, midnightEnabled }) {
         )}
       </div>
 
+      {/* Front-running attack animation when Midnight is OFF */}
+      {!midnightEnabled && <FrontRunAttack trade={trade} />}
+
       {/* Copy button */}
       <button
         onClick={handleCopy}
@@ -129,6 +177,21 @@ function TradeCard({ trade, midnightEnabled }) {
 export default function FollowerView({ midnightEnabled, trades }) {
   const cardBg = midnightEnabled ? 'bg-[#10101f]' : 'bg-[#150808]'
   const accentBorder = midnightEnabled ? 'border-violet-800/60' : 'border-red-800/60'
+  const listRef = useRef(null)
+  const prevCountRef = useRef(trades.length)
+  const [newestId, setNewestId] = useState(null)
+
+  useEffect(() => {
+    if (trades.length > prevCountRef.current && trades.length > 0) {
+      // New trade arrived — flash the newest card and scroll to top
+      setNewestId(trades[0]?.trade_id ?? null)
+      listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+      const t = setTimeout(() => setNewestId(null), 1800)
+      prevCountRef.current = trades.length
+      return () => clearTimeout(t)
+    }
+    prevCountRef.current = trades.length
+  }, [trades.length])
 
   return (
     <div className="space-y-6">
@@ -164,12 +227,13 @@ export default function FollowerView({ midnightEnabled, trades }) {
           <p className="text-slate-400">No trades yet. Go to the Whale tab to execute a trade.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div ref={listRef} className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
           {trades.map((trade) => (
             <TradeCard
               key={trade.trade_id}
               trade={trade}
               midnightEnabled={midnightEnabled}
+              isNew={trade.trade_id === newestId}
             />
           ))}
         </div>

@@ -204,6 +204,7 @@ app.post('/submit-proof', async (req, res) => {
       )
 
       // Send to local proof server — this is where the actual ZK proof is computed
+      const proofStart = Date.now()
       const proofResp = await fetch(`${netConfig.proofServer}/prove`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
@@ -217,17 +218,21 @@ app.post('/submit-proof', async (req, res) => {
       }
 
       const proofBytes = new Uint8Array(await proofResp.arrayBuffer())
+      const proofGeneratedMs = Date.now() - proofStart
       const proofHash = crypto.createHash('sha256').update(proofBytes).digest('hex')
 
-      console.log(`[ZK] Real proof generated ✅ (${proofBytes.length} bytes) direction=${signal.direction} confidence=${signal.confidence}`)
+      console.log(`[ZK] Real proof generated ✅ (${proofBytes.length} bytes, ${proofGeneratedMs}ms) direction=${signal.direction} confidence=${signal.confidence}`)
 
       return res.json({
         proofHash,
-        contractAddress: null,   // no on-chain deployment in stateless mode
+        contractAddress: null,
         txHash: null,
         reasoningHash,
         mode: 'real',
         proofBytes: Buffer.from(proofBytes).toString('base64'),
+        proofPreimage: Buffer.from(preimage).toString('base64'),
+        proofSizeBytes: proofBytes.length,
+        proofGeneratedMs,
       })
     } catch (err) {
       console.warn('[ZK] Real proof failed, falling back to mock:', err.message)
@@ -238,6 +243,56 @@ app.post('/submit-proof', async (req, res) => {
   const raw = `${asset}${amount}${timestamp}MIDNIGHT_ZK`
   const proofHash = crypto.createHash('sha256').update(raw).digest('hex')
   return res.json({ proofHash, contractAddress: null, txHash: null, reasoningHash, mode: 'mock' })
+})
+
+// ── POST /verify-proof ────────────────────────────────────────────────────────
+// Cryptographically verifies a previously-generated ZK proof preimage by sending
+// it to the Midnight proof server's /check endpoint.
+//
+// Body: { preimage }  — base64-encoded serialized preimage from submit-proof
+// Returns: { valid: boolean, mode: 'real' | 'mock' }
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/verify-proof', async (req, res) => {
+  const { preimage: preimageB64 } = req.body
+  if (!preimageB64) {
+    return res.status(400).json({ error: 'preimage required' })
+  }
+
+  const zkReady = await loadZKDeps()
+  if (!zkReady) {
+    // No proof server or keys — optimistic mock pass for demo
+    return res.json({ valid: true, mode: 'mock', message: 'ZK deps not loaded — mock pass' })
+  }
+
+  try {
+    const { ledger, keyMaterial } = _zkDeps
+    const preimage = new Uint8Array(Buffer.from(preimageB64, 'base64'))
+    const checkPayload = ledger.createCheckPayload(preimage, new Uint8Array(keyMaterial.ir))
+
+    const checkResp = await fetch(`${netConfig.proofServer}/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: checkPayload,
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!checkResp.ok) {
+      const errText = await checkResp.text()
+      console.warn('[ZK] /check returned', checkResp.status, errText)
+      return res.json({ valid: false, mode: 'real', error: errText })
+    }
+
+    const resultBytes = new Uint8Array(await checkResp.arrayBuffer())
+    // parseCheckResult returns an array of bigint or undefined; a non-empty result means valid
+    const parsed = ledger.parseCheckResult(resultBytes)
+    const valid = Array.isArray(parsed) && parsed.length > 0
+
+    console.log(`[ZK] Proof check result: ${valid ? '✅ VALID' : '❌ INVALID'} (${parsed?.length} outputs)`)
+    return res.json({ valid, mode: 'real' })
+  } catch (err) {
+    console.warn('[ZK] Proof verification error:', err.message)
+    return res.status(500).json({ valid: false, mode: 'real', error: err.message })
+  }
 })
 
 // ── GET /proof-server-status ──────────────────────────────────────────────────

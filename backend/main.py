@@ -80,6 +80,7 @@ class ProofOverride(BaseModel):
     proof_bytes: Optional[str] = None  # base64-encoded raw ZK proof
     proof_size_bytes: Optional[int] = None
     proof_generated_ms: Optional[int] = None  # milliseconds to generate proof
+    proof_preimage: Optional[str] = None  # base64-encoded serialized preimage for /check
 
 
 class TradeExecuteRequest(BaseModel):
@@ -133,18 +134,28 @@ async def execute_trade(req: TradeExecuteRequest):
     # Use real proof data from Midnight SDK if provided, else fall back to mock
     po = req.proof_override
     if po and po.proof_hash:
-        proof_hash     = po.proof_hash
-        zk_mode        = po.zk_mode or "real"
-        contract_addr  = po.contract_address
-        tx_hash        = po.tx_hash
-        reasoning_hash = po.reasoning_hash
+        proof_hash        = po.proof_hash
+        zk_mode           = po.zk_mode or "real"
+        contract_addr     = po.contract_address
+        tx_hash           = po.tx_hash
+        reasoning_hash    = po.reasoning_hash
+        proof_bytes_b64   = po.proof_bytes
+        proof_preimage_b64 = po.proof_preimage
+        proof_size        = po.proof_size_bytes or (
+            len(base64.b64decode(po.proof_bytes)) if po.proof_bytes else None
+        )
+        proof_gen_ms      = po.proof_generated_ms
     else:
-        hash_input     = f"{req.asset}{req.amount}{timestamp}MIDNIGHT_ZK"
-        proof_hash     = hashlib.sha256(hash_input.encode()).hexdigest()
-        zk_mode        = "mock"
-        contract_addr  = None
-        tx_hash        = None
-        reasoning_hash = None
+        hash_input        = f"{req.asset}{req.amount}{timestamp}MIDNIGHT_ZK"
+        proof_hash        = hashlib.sha256(hash_input.encode()).hexdigest()
+        zk_mode           = "mock"
+        contract_addr     = None
+        tx_hash           = None
+        reasoning_hash    = None
+        proof_bytes_b64   = None
+        proof_preimage_b64 = None
+        proof_size        = None
+        proof_gen_ms      = None
 
     trade = {
         "trade_id": trade_id,
@@ -164,10 +175,15 @@ async def execute_trade(req: TradeExecuteRequest):
             "contract_address": contract_addr,
             "tx_hash": tx_hash,
             "reasoning_hash": reasoning_hash,
+            "proof_bytes": proof_bytes_b64,
+            "proof_preimage": proof_preimage_b64,
+            "proof_size_bytes": proof_size,
+            "proof_generated_ms": proof_gen_ms,
         },
     }
 
     trades[trade_id] = trade
+    _save_trades(trades)
 
     return {
         "trade_id": trade_id,
@@ -212,19 +228,64 @@ async def get_proof(trade_id: str):
         raise HTTPException(status_code=404, detail="Trade not found")
     proof = trade["proof"]
     return {
-        "proof_id": proof["proof_id"],
-        "proof_hash": proof["proof_hash"],
-        "status": "VERIFIED",
-        "execution_fair": True,
+        "trade_id":               trade_id,
+        "proof_id":               proof["proof_id"],
+        "proof_hash":             proof["proof_hash"],
+        "status":                 "VERIFIED",
+        "execution_fair":         True,
         "strategy_bytes_exposed": 0,
-        "zk_mode": proof.get("zk_mode", "mock"),
-        "contract_address": proof.get("contract_address"),
-        "tx_hash": proof.get("tx_hash"),
-        "reasoning_hash": proof.get("reasoning_hash"),
-        "asset": trade["asset"],
-        "amount": trade["amount"],
-        "timestamp": proof["timestamp"],
+        "zk_mode":                proof.get("zk_mode", "mock"),
+        "contract_address":       proof.get("contract_address"),
+        "tx_hash":                proof.get("tx_hash"),
+        "reasoning_hash":         proof.get("reasoning_hash"),
+        "proof_bytes":            proof.get("proof_bytes"),
+        "proof_preimage":         proof.get("proof_preimage"),
+        "proof_size_bytes":       proof.get("proof_size_bytes"),
+        "proof_generated_ms":     proof.get("proof_generated_ms"),
+        "asset":                  trade["asset"],
+        "amount":                 trade["amount"],
+        "timestamp":              proof["timestamp"],
     }
+
+
+import httpx
+
+@app.post("/api/verify-proof/{trade_id}")
+async def verify_proof(trade_id: str):
+    trade = trades.get(trade_id)
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+
+    proof = trade["proof"]
+    preimage = proof.get("proof_preimage")
+    verified_at = datetime.now(timezone.utc).isoformat()
+
+    if not preimage:
+        # Mock trade — no real preimage stored
+        return {
+            "trade_id": trade_id,
+            "valid": None,
+            "mode": proof.get("zk_mode", "mock"),
+            "message": "No ZK preimage stored — this is a mock proof",
+            "verified_at": verified_at,
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=35.0) as client:
+            resp = await client.post(
+                "http://localhost:3006/verify-proof",
+                json={"preimage": preimage},
+            )
+        data = resp.json()
+        return {
+            "trade_id": trade_id,
+            "valid": data.get("valid"),
+            "mode": data.get("mode", "real"),
+            "message": data.get("message"),
+            "verified_at": verified_at,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Midnight service error: {e}")
 
 
 @app.get("/health")
