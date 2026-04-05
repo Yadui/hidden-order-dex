@@ -1,4 +1,6 @@
-import { Shield, ShieldOff, Wifi, WifiOff, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Shield, ShieldOff, Wifi, WifiOff, Loader2, ChevronDown } from 'lucide-react'
+import WalletModal from './WalletModal.jsx'
 
 const TABS = [
   { id: 'whale', label: '🐋 Whale' },
@@ -7,11 +9,24 @@ const TABS = [
 ]
 
 export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab, setCurrentTab, midnight }) {
-  const accent = midnightEnabled ? 'violet' : 'red'
+  const [showWalletModal, setShowWalletModal] = useState(false)
 
   return (
+    <>
+      {showWalletModal && (
+        <WalletModal
+          onClose={() => setShowWalletModal(false)}
+          connect={midnight?.connect}
+          walletStatus={midnight?.walletStatus}
+          walletError={midnight?.walletError}
+          isLaceInstalled={midnight?.isLaceInstalled}
+          proofServerUp={midnight?.proofServerUp}
+          networkId={midnight?.networkId}
+        />
+      )}
+
     <nav
-      className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors duration-700 ${
+      className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors duration-700 ${
         midnightEnabled
           ? 'bg-[#0d0d1a]/95 border-violet-900/50'
           : 'bg-[#120808]/95 border-red-900/50'
@@ -44,37 +59,11 @@ export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab
             </div>
           </div>
 
-          {/* Midnight connection status */}
+          {/* Wallet + ZK status */}
           <div className="hidden md:flex items-center gap-2 mr-4">
-            {midnight?.walletStatus === 'connected' ? (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 px-2.5 py-1 rounded-full font-mono">
-                <Wifi size={11} />
-                {midnight.walletAddress}
-                {midnight.proofServerUp
-                  ? <span className="ml-1 text-emerald-600">· proof ✓</span>
-                  : <span className="ml-1 text-amber-500">· proof ✗</span>
-                }
-                {midnight.networkId && (
-                  <span className="ml-1 text-slate-500">· {midnight.networkId}</span>
-                )}
-              </span>
-            ) : midnight?.walletStatus === 'connecting' ? (
-              <span className="flex items-center gap-1.5 text-xs text-violet-400 bg-violet-950/40 border border-violet-800/60 px-2.5 py-1 rounded-full font-mono">
-                <Loader2 size={11} className="animate-spin" />
-                Connecting…
-              </span>
-            ) : (
-              <button
-                onClick={midnight?.connect}
-                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-300 bg-slate-900 hover:bg-violet-950/40 border border-slate-700 hover:border-violet-700 px-2.5 py-1 rounded-full font-mono transition-all"
-              >
-                <WifiOff size={11} />
-                Connect Lace Wallet
-              </button>
-            )}
-            {/* ZK mode badge — always visible */}
+            {/* ZK mode pill — always visible if service is up */}
             {midnight?.serviceUp && (
-              <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono font-bold border ${
+              <span className={`text-xs px-2 py-0.5 rounded font-mono font-bold border ${
                 midnight?.serviceZkMode === 'real'
                   ? 'bg-violet-950/50 text-violet-300 border-violet-700'
                   : 'bg-slate-900 text-slate-500 border-slate-700'
@@ -82,11 +71,41 @@ export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab
                 {midnight?.serviceZkMode === 'real' ? '⚡ ZK real' : '🔵 ZK mock'}
               </span>
             )}
+
+            {/* Wallet button */}
+            {midnight?.walletStatus === 'connected' ? (
+              <button
+                onClick={() => setShowWalletModal(true)}
+                className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 hover:border-emerald-600 px-2.5 py-1 rounded-full font-mono transition-all"
+              >
+                <Wifi size={11} />
+                {midnight.walletAddress}
+                {midnight.proofServerUp
+                  ? <span className="text-emerald-600">· proof ✓</span>
+                  : <span className="text-amber-500">· proof ✗</span>
+                }
+                <ChevronDown size={10} className="text-emerald-700" />
+              </button>
+            ) : midnight?.walletStatus === 'connecting' ? (
+              <span className="flex items-center gap-1.5 text-xs text-violet-400 bg-violet-950/40 border border-violet-800/60 px-2.5 py-1 rounded-full font-mono">
+                <Loader2 size={11} className="animate-spin" />
+                Connecting to Lace…
+              </span>
+            ) : (
+              <button
+                onClick={() => setShowWalletModal(true)}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-300 bg-slate-900 hover:bg-violet-950/40 border border-slate-700 hover:border-violet-700 px-2.5 py-1 rounded-full font-mono transition-all"
+              >
+                <WifiOff size={11} />
+                {midnight?.walletError ? 'Retry Connection' : 'Connect Wallet'}
+                {midnight?.walletError && <span className="text-red-400 ml-1">⚠</span>}
+              </button>
+            )}
           </div>
 
           {/* Toggle */}
           <div className="flex items-center gap-3">
-            <span className="text-slate-400 text-sm font-medium">Midnight Network</span>
+            <span className="text-slate-400 text-sm font-medium hidden sm:block">Midnight</span>
             <button
               onClick={() => setMidnightEnabled(!midnightEnabled)}
               className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none ${
@@ -100,18 +119,14 @@ export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab
                 }`}
               />
             </button>
-            <span
-              className={`text-xs font-bold px-2 py-0.5 rounded font-mono transition-colors duration-300 ${
-                midnightEnabled
-                  ? 'bg-violet-900/60 text-violet-300'
-                  : 'bg-red-900/60 text-red-300'
-              }`}
-            >
+            <span className={`text-xs font-bold px-2 py-0.5 rounded font-mono transition-colors duration-300 ${
+              midnightEnabled ? 'bg-violet-900/60 text-violet-300' : 'bg-red-900/60 text-red-300'
+            }`}>
               {midnightEnabled ? 'ON' : 'OFF'}
             </span>
             {!midnightEnabled && (
-              <span className="text-xs font-bold text-red-400 bg-red-900/40 border border-red-700 px-2 py-0.5 rounded">
-                ⚠️ UNPROTECTED
+              <span className="text-xs font-bold text-red-400 bg-red-900/40 border border-red-700 px-2 py-0.5 rounded hidden sm:block">
+                ⚠️ EXPOSED
               </span>
             )}
           </div>
@@ -137,5 +152,6 @@ export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab
         </div>
       </div>
     </nav>
+    </>
   )
 }

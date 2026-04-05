@@ -45,11 +45,20 @@ export function useMidnight() {
       const addr = await getWalletAddress(api)
       setWalletAddress(addr ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : 'Connected')
       setWalletStatus('connected')
+      localStorage.setItem('alphashield_wallet_connected', '1')
     } catch (err) {
       setWalletError(err.message)
       setWalletStatus('error')
+      localStorage.removeItem('alphashield_wallet_connected')
     }
   }, [])
+
+  // Silent auto-reconnect on page load if previously connected
+  useEffect(() => {
+    if (localStorage.getItem('alphashield_wallet_connected') !== '1') return
+    if (!isLaceInstalled()) return
+    connect()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Generate a ZK proof and submit on-chain.
