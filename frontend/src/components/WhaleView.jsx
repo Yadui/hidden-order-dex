@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Zap, Lock, AlertTriangle, CheckCircle2, Cpu, Loader2, RotateCcw, RefreshCw } from 'lucide-react'
 import { useLocalStorage } from '../hooks/useLocalStorage.js'
+import MarketOverview from './MarketOverview.jsx'
 
 const ASSETS = ['ETH', 'BTC', 'SOL', 'MATIC']
 
@@ -34,11 +35,11 @@ function computeRSI(closingPrices, period = 14) {
 
 const ZK_STEPS = [
   'Running circuit locally…',
-  'Building witness data…',
+  'Building private witness data…',
   'Sending to proof server (localhost:6300)…',
-  'Generating ZK proof…',
-  'Submitting transaction to Midnight Network…',
-  'Waiting for confirmation…',
+  'Generating ZK proof — direction & confidence never leave this machine…',
+  'Proof generated ✓ — recording trade on-chain…',
+  'Finalising ✓',
 ]
 
 const LS = {
@@ -243,6 +244,15 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
           </button>
         </div>
       )}
+
+      {/* ── Market Overview ──────────────────────────────────────────────── */}
+      <MarketOverview
+        midnightEnabled={midnightEnabled}
+        onSelectAsset={(ticker) => {
+          setAsset(ticker)
+          fetchLivePrice(ticker)
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Left: Signal Engine ─────────────────────────────────────────── */}

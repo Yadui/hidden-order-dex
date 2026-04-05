@@ -115,13 +115,18 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
       <div>
         <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Strategy</p>
         {midnightEnabled ? (
-          <div className="bg-violet-950/60 border border-violet-800 rounded-lg p-3">
+          <div className="bg-violet-950/60 border border-violet-800 rounded-lg p-3 space-y-1.5">
             <p className="text-violet-300 font-mono text-sm font-bold">
               {trade.signal?.encrypted_payload || '[MIDNIGHT ENCRYPTED 🔒]'}
             </p>
-            <p className="text-violet-700 text-xs mt-1 font-mono">
+            <p className="text-violet-700 text-xs font-mono">
               Proof: {trade.proof_id?.slice(0, 24)}...
             </p>
+            {trade.proof?.reasoning_hash && (
+              <p className="text-violet-800 text-xs font-mono break-all">
+                SHA-256: {trade.proof.reasoning_hash.slice(0, 32)}…
+              </p>
+            )}
           </div>
         ) : (
           <div className="bg-red-950/30 border border-red-700 rounded-lg p-3 space-y-1">
@@ -161,7 +166,9 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
         className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
           copied
             ? 'bg-emerald-800 text-emerald-200'
-            : 'bg-blue-700 hover:bg-blue-600 text-white'
+            : midnightEnabled
+            ? 'bg-violet-700 hover:bg-violet-600 text-white'
+            : 'bg-red-700 hover:bg-red-600 text-white'
         }`}
       >
         {copied ? (

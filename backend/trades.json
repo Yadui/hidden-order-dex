@@ -56,5 +56,34 @@
       "proof_size_bytes": 2940,
       "proof_generated_ms": 184
     }
+  },
+  "f2de8657-61d5-4bd2-a154-45be61bf1a70": {
+    "trade_id": "f2de8657-61d5-4bd2-a154-45be61bf1a70",
+    "asset": "ETH",
+    "amount": 1.0,
+    "price": 2051.91,
+    "timestamp": "2026-04-03T04:51:55.860127+00:00",
+    "signal": {
+      "direction": "BUY",
+      "confidence": 72,
+      "reasoning": "RSI at 61 indicates bullish momentum without being overbought, suggesting room for further upside. A 55% increase in volume confirms strong market participation, supporting the likelihood of continuation rather than exhaustion.",
+      "risk_level": "MEDIUM"
+    },
+    "proof": {
+      "proof_id": "8fc2ab92-8eb9-4ad3-b2ca-08102579722a",
+      "proof_hash": "2e488ae12547a25947175e205677660613e9718a974ea773bfdcbffa18bfff7f",
+      "status": "VERIFIED",
+      "strategy_encrypted": true,
+      "bytes_exposed": 0,
+      "timestamp": "2026-04-03T04:51:55.860127+00:00",
+      "zk_mode": "real",
+      "contract_address": null,
+      "tx_hash": null,
+      "reasoning_hash": "7106ee29a5c7344a87e6364b03d8622aa622d12957813fd293e72548c4bbc3ab",
+      "proof_bytes": "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",
+      "proof_preimage": "bWlkbmlnaHQ6cHJvb2YtcHJlaW1hZ2U6GHPSHGX45rU2vUIlgFDapJgXKShLMbNeC4Dc2kFdURGhEnPHCTyRvIRpoakkTyyyU1USBUtOcC40bYvGZznxnaOJFnO4iHAbgghbW5D76IYtIFfV0ccfTrOSB7zmyVtB5qiFP3MAwDYpklQy1EkPi9nift+aJSiw7Hn21Tr+tTput56VAwQhAQAJAUAEBAQARAQEcwAAAAD//////lv+/wKkvVMF2KEJCNg5M0h9nSlTp+1zc9IcZfjmtTa9QiWAUNqkmBcpKEsxs14LgNzaQV1REaESRQJABAQEBEQEBHMAAAAA//////5b/v8CpL1TBdihCQjYOTNIfZ0pU6ftc3PHCTyRvIRpoakkTyyyU1USBUtOcC40bYvGZznxnaOJFkUCQAQEBAhEBARzAAAAAP/////+W/7/AqS9UwXYoQkI2DkzSH2dKVOn7XNzuIhwG4IIW1uQ++iGLSBX1dHHH06zkge85slbQeaohT9FAkAEBAQMRAQEcwAAAAD//////lv+/wKkvVMF2KEJCNg5M0h9nSlTp+1zcwDANimSVDLUSQ+L2eJ+35olKLDsefbVOv61Om63npUDRQJABAQEEEQEBBAERQJABAQEFEQEBBAARQIAAAFzeqkESNV+HMrVrCEHDpeMc8VT4SAo7xrF1aVgw5cmQQMAFGR1bW15",
+      "proof_size_bytes": 2940,
+      "proof_generated_ms": 216
+    }
   }
 }

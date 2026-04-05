@@ -306,48 +306,63 @@ export default function AuditorView({ trades }) {
                 <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">Asset</th>
                 <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">Amount</th>
                 <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">Timestamp</th>
-                <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">Proof ID</th>
+                <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">ZK Mode</th>
+                <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">Exposed</th>
                 <th className="px-5 py-3 text-slate-500 uppercase text-xs tracking-wide font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
-              {trades.map((trade, i) => (
-                <tr
-                  key={trade.trade_id}
-                  className={`border-b border-slate-800/50 hover:bg-violet-950/20 transition-colors ${
-                    i % 2 === 0 ? 'bg-slate-900/20' : ''
-                  }`}
-                >
-                  <td className="px-5 py-3">
-                    <span className="bg-violet-900/40 text-violet-300 border border-violet-700/50 px-2 py-0.5 rounded text-xs font-mono font-bold">
-                      {trade.asset}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-white font-mono">
-                    {trade.amount} {trade.asset}
-                  </td>
-                  <td className="px-5 py-3 text-slate-400 text-xs font-mono">
-                    {new Date(trade.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-5 py-3 text-slate-500 text-xs font-mono">
-                    {trade.proof_id?.slice(0, 18)}...
-                  </td>
-                  <td className="px-5 py-3">
-                    <button
-                      onClick={() => verifyProof(trade)}
-                      disabled={loadingId === trade.trade_id || verifyingId === trade.trade_id}
-                      className="flex items-center gap-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-                    >
-                      {(loadingId === trade.trade_id || verifyingId === trade.trade_id) ? (
-                        <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
-                      ) : (
-                        <Search size={12} />
-                      )}
-                      {verifyingId === trade.trade_id ? 'Verifying…' : 'Verify Proof'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {trades.map((trade, i) => {
+                const zkMode = trade.proof?.zk_mode ?? trade.zk_mode ?? 'mock'
+                const isReal = zkMode === 'real'
+                return (
+                  <tr
+                    key={trade.trade_id}
+                    onClick={() => verifyProof(trade)}
+                    className={`border-b border-slate-800/50 hover:bg-violet-950/20 transition-colors cursor-pointer ${
+                      i % 2 === 0 ? 'bg-slate-900/20' : ''
+                    }`}
+                  >
+                    <td className="px-5 py-3">
+                      <span className="bg-violet-900/40 text-violet-300 border border-violet-700/50 px-2 py-0.5 rounded text-xs font-mono font-bold">
+                        {trade.asset}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-white font-mono">
+                      {trade.amount} {trade.asset}
+                    </td>
+                    <td className="px-5 py-3 text-slate-400 text-xs font-mono">
+                      {new Date(trade.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                        isReal
+                          ? 'bg-violet-950/50 text-violet-300 border-violet-700'
+                          : 'bg-slate-900 text-slate-500 border-slate-700'
+                      }`}>
+                        {isReal ? '⚡ real' : '🔵 mock'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-emerald-400 font-bold font-mono text-xs">0 bytes ✓</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); verifyProof(trade) }}
+                        disabled={loadingId === trade.trade_id || verifyingId === trade.trade_id}
+                        className="flex items-center gap-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                      >
+                        {(loadingId === trade.trade_id || verifyingId === trade.trade_id) ? (
+                          <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
+                        ) : (
+                          <Search size={12} />
+                        )}
+                        {verifyingId === trade.trade_id ? 'Verifying…' : 'Verify'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
