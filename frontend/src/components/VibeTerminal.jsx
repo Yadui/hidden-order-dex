@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from 'react'
-import { Terminal, Zap, Lock, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react'
+import { Terminal, Zap, Lock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 const EXAMPLES = [
   'Feeling very bullish on ETH, buy 0.5',
@@ -37,8 +37,8 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
   const [loading,  setLoading]  = useState(false)
   const [example,  setExample]  = useState(0)
   const [tick,     setTick]     = useState(0)    // triggers re-render for relative timestamps
-  const inputRef  = useRef(null)
-  const bottomRef = useRef(null)
+  const inputRef    = useRef(null)
+  const historyRef  = useRef(null)
 
   const accent       = midnightEnabled ? 'violet' : 'red'
   const accentBorder = midnightEnabled ? 'border-violet-800/60' : 'border-red-800/60'
@@ -59,12 +59,15 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
     return () => clearInterval(t)
   }, [])
 
+  // Scroll only within the history container — never the page
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = historyRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [history])
 
   async function callAgent(msg) {
     setLoading(true)
+    setHistory(h => [...h, { role: 'typing' }])
     try {
       const res = await fetch('/api/agent', {
         method: 'POST',
@@ -74,7 +77,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
       const data = await res.json()
 
       if (!data.ok) {
-        setHistory(h => [...h, { role: 'error', text: data.error ?? 'Could not parse trade intent.' }])
+        setHistory(h => [...h.filter(e => e.role !== 'typing'), { role: 'error', text: data.error ?? 'Could not parse trade intent.' }])
         return
       }
 
@@ -88,7 +91,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
         position_pct:  p.position_pct,
       }
 
-      setHistory(h => [...h, {
+      setHistory(h => [...h.filter(e => e.role !== 'typing'), {
         role:        'agent',
         text:        `Parsed: ${signal.direction} ${p.asset} — ${signal.confidence}% confidence`,
         parsed:      { ...p, signal },
@@ -101,7 +104,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
         signal,
       })
     } catch (e) {
-      setHistory(h => [...h, { role: 'error', text: `Agent error: ${e.message}` }])
+      setHistory(h => [...h.filter(e => e.role !== 'typing'), { role: 'error', text: `Agent error: ${e.message}` }])
     } finally {
       setLoading(false)
     }
@@ -158,19 +161,33 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
       </div>
 
       {/* History */}
-      <div className="px-4 py-3 space-y-2.5 min-h-[120px] max-h-[260px] overflow-y-auto font-mono text-xs">
+      <div ref={historyRef} className="px-4 py-3 space-y-2.5 min-h-[120px] max-h-[260px] overflow-y-auto font-mono text-xs">
         {history.length === 0 && (
           <p className="text-slate-700 italic">
             Describe your trade in plain English. Mention a coin (BTC, ETH, SOL …) or pick one when prompted.
           </p>
         )}
+        {/* Typing animation entry */}
         {history.map((entry, i) => (
           <div key={i} className={`space-y-1.5 ${
             entry.role === 'user'   ? 'pl-3 border-l-2 border-slate-700'  :
             entry.role === 'error'  ? 'pl-3 border-l-2 border-red-700'    :
             entry.role === 'picker' ? 'pl-3 border-l-2 border-amber-700'  :
+            entry.role === 'typing' ? 'pl-3 border-l-2 border-violet-800/50' :
                                       'pl-3 border-l-2 border-violet-700'
           }`}>
+            {/* Typing dots */}
+            {entry.role === 'typing' && (
+              <div className="flex items-center gap-1.5 text-violet-500">
+                <span className="text-violet-500">⚡</span>
+                <span className="text-slate-500 text-xs">AlphaShield</span>
+                <span className="flex items-end gap-[3px] h-3">
+                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              </div>
+            )}
             {/* Coin picker row */}
             {entry.role === 'picker' && (
               <div className="space-y-2">
@@ -198,7 +215,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
             )}
 
             {/* Normal user / error / agent rows */}
-            {entry.role !== 'picker' && (
+            {entry.role !== 'picker' && entry.role !== 'typing' && (
               <div className="flex items-start gap-2">
                 <span className={`shrink-0 ${
                   entry.role === 'user'  ? 'text-slate-500' :
@@ -281,7 +298,6 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
             )}
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input row */}
@@ -296,18 +312,13 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
           disabled={loading}
           className="flex-1 bg-transparent text-white text-xs font-mono placeholder-slate-700 focus:outline-none disabled:opacity-50"
         />
-        {loading
-          ? <Loader2 size={14} className={`animate-spin shrink-0 ${midnightEnabled ? 'text-violet-400' : 'text-red-400'}`} />
-          : (
-            <button
-              onClick={submit}
-              disabled={!input.trim()}
-              className={`shrink-0 px-3 py-1 rounded text-xs font-bold transition-all disabled:opacity-30 ${accentBtn}`}
-            >
-              <Zap size={11} className="inline mr-1" />Send
-            </button>
-          )
-        }
+        <button
+          onClick={submit}
+          disabled={loading || !input.trim()}
+          className={`shrink-0 px-3 py-1 rounded text-xs font-bold transition-all disabled:opacity-30 ${accentBtn}`}
+        >
+          <Zap size={11} className="inline mr-1" />{loading ? '…' : 'Send'}
+        </button>
       </div>
     </div>
   )
