@@ -2,13 +2,13 @@
 // Multi-source price feed with automatic fallback chain.
 //
 // Source priority:
-//   1. CoinGecko  — richest data (sparklines, market cap, 7d change)
+//   1. CoinGecko  — proxied through backend (/coingecko/*) to avoid CORS and
+//                   client-side rate limits. Backend caches responses (30-300s).
 //   2. Binance    — no API key, very high rate limits, fast
 //   3. CoinCap    — open API, good for history / RSI computation
-//
-// CoinGecko free tier rate-limits at 30 req/min. Under load the 429 response
-// triggers the fallback chain automatically — callers don't need to handle it.
 // ─────────────────────────────────────────────────────────────────────────────
+
+const CG = '/coingecko'  // proxied through Vite → FastAPI → coingecko.com
 
 // ── Symbol / ID mappings ──────────────────────────────────────────────────────
 const BINANCE_SYMBOL = {
@@ -48,8 +48,8 @@ export async function fetchAssetData(ticker, cgId) {
   // 1. CoinGecko — price + 14-day chart in two parallel requests
   try {
     const [priceData, chartData] = await Promise.all([
-      tryFetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`),
-      tryFetch(`https://api.coingecko.com/api/v3/coins/${cgId}/market_chart?vs_currency=usd&days=14&interval=daily`),
+      tryFetch(`${CG}/simple/price?ids=${cgId}&vs_currencies=usd`),
+      tryFetch(`${CG}/coins/${cgId}/market_chart?vs_currency=usd&days=14&interval=daily`),
     ])
     const price = priceData[cgId]?.usd
     if (!price) throw new Error('No price returned')
@@ -117,7 +117,7 @@ export async function fetchMarketsData(coinIds, tickerMap) {
   // 1. CoinGecko /markets — full data including sparkline + market cap
   try {
     const data = await tryFetch(
-      `https://api.coingecko.com/api/v3/coins/markets` +
+      `${CG}/coins/markets` +
       `?vs_currency=usd&ids=${coinIds}&order=market_cap_desc` +
       `&sparkline=true&price_change_percentage=1h,24h,7d`
     )
@@ -229,7 +229,7 @@ export async function fetchCoinChart(cgId, ticker, days) {
   try {
     const interval = days === 1 ? '' : '&interval=daily'
     const d = await tryFetch(
-      `https://api.coingecko.com/api/v3/coins/${cgId}/market_chart` +
+      `${CG}/coins/${cgId}/market_chart` +
       `?vs_currency=usd&days=${days}${interval}`
     )
     if (d.prices?.length > 0) {
@@ -308,7 +308,7 @@ export const SOURCE_LABEL = {
 export async function searchCoins(query) {
   try {
     const data = await tryFetch(
-      `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query.trim())}`
+      `${CG}/search?query=${encodeURIComponent(query.trim())}`
     )
     return (data.coins ?? []).slice(0, 8)
   } catch { return [] }
@@ -324,7 +324,7 @@ export async function searchCoins(query) {
 export async function fetchCoinById(id) {
   try {
     const data = await tryFetch(
-      `https://api.coingecko.com/api/v3/coins/markets` +
+      `${CG}/coins/markets` +
       `?vs_currency=usd&ids=${encodeURIComponent(id)}&sparkline=true&price_change_percentage=1h,24h,7d`
     )
     return Array.isArray(data) && data.length > 0 ? data[0] : null

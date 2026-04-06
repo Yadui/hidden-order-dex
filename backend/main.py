@@ -371,6 +371,54 @@ async def health():
     return {"status": "ok"}
 
 
+# ── CoinGecko proxy ───────────────────────────────────────────────────────────
+# All CoinGecko requests are proxied through here so the browser never calls
+# coingecko.com directly (avoids CORS + client-side rate-limit issues).
+# Responses are cached in-memory:
+#   price / simple  → 30s TTL      (fast-changing)
+#   markets         → 60s TTL
+#   market_chart    → 5 min TTL
+#   search          → 5 min TTL
+# ──────────────────────────────────────────────────────────────────────
+_cg_cache: dict = {}   # key → (payload, expires_at)
+CG_BASE    = "https://api.coingecko.com/api/v3"
+
+def _cg_ttl(path: str) -> int:
+    if "market_chart" in path or "search" in path:
+        return 300
+    if "markets" in path:
+        return 60
+    return 30
+
+@app.get("/coingecko/{path:path}")
+async def coingecko_proxy(path: str, request: Request):
+    qs       = str(request.url.query)
+    cache_key = path + ("?" + qs if qs else "")
+    now      = time.time()
+
+    if cache_key in _cg_cache:
+        payload, expires = _cg_cache[cache_key]
+        if now < expires:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(content=payload)
+
+    url = f"{CG_BASE}/{path}" + ("?" + qs if qs else "")
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.get(url, headers={"Accept": "application/json"})
+        if resp.status_code == 429:
+            raise HTTPException(status_code=429, detail="CoinGecko rate limit — try again shortly")
+        resp.raise_for_status()
+        data = resp.json()
+        _cg_cache[cache_key] = (data, now + _cg_ttl(path))
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"CoinGecko proxy error: {e}")
+
+
 # ── /api/agent ─────────────────────────────────────────────────────────────────
 # Natural language → parse intent → fetch live market data → generate signal.
 # Does NOT execute — returns the parsed intent + signal so the frontend can
