@@ -351,7 +351,7 @@ async def verify_proof(trade_id: str):
     try:
         async with httpx.AsyncClient(timeout=35.0) as client:
             resp = await client.post(
-                "http://localhost:3006/verify-proof",
+                "http://localhost:5001/verify-proof",
                 json={"preimage": preimage},
             )
         data = resp.json()

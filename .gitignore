@@ -28,6 +28,11 @@ frontend/dist/
 !.env.example
 *.example.json
 
+# Runtime data
+backend/trades.json
+.logs/
+*.pid
+
 # Logs
 logs/
 *.log

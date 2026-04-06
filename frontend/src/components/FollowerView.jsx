@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Zap, Bot, Lock, Loader2 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { submitTradeProof } from '../midnight/api.js'
 
 // ── Obfuscated whale profile ──────────────────────────────────────────────────
 function WhaleProfile({ midnightEnabled }) {
@@ -139,26 +140,21 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
     setExecResult(null)
     try {
       // Call midnight-service to generate a follower ZK proof for the same trade
-      const proofRes = await fetch('http://localhost:5001/submit-proof', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          asset:     trade.asset,
-          amount:    trade.amount,
-          price:     trade.price,
-          timestamp: new Date().toISOString(),
-          signal:    {
-            direction:     trade.signal?.direction ?? 'BUY',
-            confidence:    trade.signal?.confidence ?? 75,
-            reasoning:     'Copy trade — follower executing mirrored position',
-            risk_level:    trade.signal?.risk_level ?? 'MEDIUM',
-            stop_loss_pct: trade.signal?.stop_loss_pct ?? 8,
-            position_pct:  trade.signal?.position_pct ?? 15,
-          },
-        }),
-        signal: AbortSignal.timeout(90_000),
-      })
-      const proofData = proofRes.ok ? await proofRes.json() : { proofHash: null, mode: 'mock' }
+      const followerSignal = {
+        direction:     trade.signal?.direction ?? 'BUY',
+        confidence:    trade.signal?.confidence ?? 75,
+        reasoning:     'Copy trade — follower executing mirrored position',
+        risk_level:    trade.signal?.risk_level ?? 'MEDIUM',
+        stop_loss_pct: trade.signal?.stop_loss_pct ?? 8,
+        position_pct:  trade.signal?.position_pct ?? 15,
+      }
+      const proofData = await submitTradeProof(null, {
+        asset:     trade.asset,
+        amount:    trade.amount,
+        price:     trade.price,
+        timestamp: new Date().toISOString(),
+        signal:    followerSignal,
+      }).catch(() => ({ proofHash: null, mode: 'mock' }))
 
       // Submit to backend as a follower copy trade
       const execRes = await fetch('/api/trade/execute', {
