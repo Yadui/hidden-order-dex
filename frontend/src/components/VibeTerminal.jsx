@@ -1,16 +1,11 @@
 // ─── VibeTerminal ─────────────────────────────────────────────────────────────
 // Natural language trading terminal.
 // Type anything → AI agent parses intent → pre-fills signal card → one-click ZK execute.
-//
-// Examples:
-//   "Feeling very bullish on ETH, buy 0.5"
-//   "SOL is oversold on RSI, long 2 SOL"
-//   "BTC looking weak, sell 0.1 with tight stop"
-//   "Load up on AVAX, clear breakout pattern"
+// If no coin is mentioned in the message, an inline coin picker is shown automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from 'react'
-import { Terminal, Zap, Lock, AlertTriangle, Loader2, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react'
+import { Terminal, Zap, Lock, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react'
 
 const EXAMPLES = [
   'Feeling very bullish on ETH, buy 0.5',
@@ -20,11 +15,28 @@ const EXAMPLES = [
   'XRP looks weak, small short',
 ]
 
+const KNOWN_COINS = ['BTC', 'ETH', 'SOL', 'XRP', 'AVAX', 'LINK', 'ADA', 'DOT']
+
+function detectCoin(text) {
+  const upper = text.toUpperCase()
+  return KNOWN_COINS.find(c => new RegExp(`\\b${c}\\b`).test(upper)) ?? null
+}
+
+function relativeTime(ts) {
+  const secs = Math.floor((Date.now() - ts) / 1000)
+  if (secs < 5)  return 'just now'
+  if (secs < 60) return `${secs}s ago`
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  return `${Math.floor(mins / 60)}h ago`
+}
+
 export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoExecute, midnight, disabled }) {
   const [input,    setInput]    = useState('')
-  const [history,  setHistory]  = useState([])   // { role: 'user'|'agent'|'error', text, parsed? }
+  const [history,  setHistory]  = useState([])   // { role: 'user'|'agent'|'error'|'picker', text, parsed?, generatedAt?, originalMsg? }
   const [loading,  setLoading]  = useState(false)
   const [example,  setExample]  = useState(0)
+  const [tick,     setTick]     = useState(0)    // triggers re-render for relative timestamps
   const inputRef  = useRef(null)
   const bottomRef = useRef(null)
 
@@ -41,17 +53,18 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
     return () => clearInterval(t)
   }, [])
 
+  // Tick every 30s to refresh "X ago" labels
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 30_000)
+    return () => clearInterval(t)
+  }, [])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [history])
 
-  async function submit() {
-    const msg = input.trim()
-    if (!msg || loading) return
-    setInput('')
-    setHistory(h => [...h, { role: 'user', text: msg }])
+  async function callAgent(msg) {
     setLoading(true)
-
     try {
       const res = await fetch('/api/agent', {
         method: 'POST',
@@ -76,12 +89,12 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
       }
 
       setHistory(h => [...h, {
-        role:   'agent',
-        text:   `Parsed: ${signal.direction} ${p.asset} — ${signal.confidence}% confidence`,
-        parsed: { ...p, signal },
+        role:        'agent',
+        text:        `Parsed: ${signal.direction} ${p.asset} — ${signal.confidence}% confidence`,
+        parsed:      { ...p, signal },
+        generatedAt: Date.now(),
       }])
 
-      // Bubble up to WhaleView to pre-fill the form
       onSignalParsed?.({
         asset:  p.asset,
         amount: p.amount ?? 1,
@@ -94,15 +107,37 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
     }
   }
 
+  async function submit() {
+    const msg = input.trim()
+    if (!msg || loading) return
+    setInput('')
+    setHistory(h => [...h, { role: 'user', text: msg }])
+
+    const coin = detectCoin(msg)
+    if (!coin) {
+      // No coin detected — show inline picker instead of calling API
+      setHistory(h => [...h, { role: 'picker', originalMsg: msg }])
+      return
+    }
+
+    await callAgent(msg)
+  }
+
+  async function pickCoin(coin, originalMsg) {
+    // Replace the picker entry with a user-visible coin selection note, then call agent
+    setHistory(h => h.map(e =>
+      e.role === 'picker' && e.originalMsg === originalMsg
+        ? { role: 'user', text: `${originalMsg} [coin: ${coin}]` }
+        : e
+    ))
+    await callAgent(`${originalMsg} (asset: ${coin})`)
+  }
+
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
     }
-  }
-
-  function handleAutoExecute(parsedEntry) {
-    onAutoExecute?.(parsedEntry.parsed)
   }
 
   return (
@@ -126,25 +161,59 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
       <div className="px-4 py-3 space-y-2.5 min-h-[120px] max-h-[260px] overflow-y-auto font-mono text-xs">
         {history.length === 0 && (
           <p className="text-slate-700 italic">
-            Describe your trade in plain English. The agent will parse intent and pre-fill the signal card.
+            Describe your trade in plain English. Mention a coin (BTC, ETH, SOL …) or pick one when prompted.
           </p>
         )}
         {history.map((entry, i) => (
-          <div key={i} className={`space-y-1.5 ${entry.role === 'user' ? 'pl-3 border-l-2 border-slate-700' : entry.role === 'error' ? 'pl-3 border-l-2 border-red-700' : 'pl-3 border-l-2 border-violet-700'}`}>
-            <div className="flex items-start gap-2">
-              <span className={`shrink-0 ${
-                entry.role === 'user'  ? 'text-slate-500' :
-                entry.role === 'error' ? 'text-red-500'   : 'text-violet-400'
-              }`}>
-                {entry.role === 'user' ? '>' : entry.role === 'error' ? '✗' : '⚡'}
-              </span>
-              <span className={
-                entry.role === 'user'  ? 'text-slate-300' :
-                entry.role === 'error' ? 'text-red-400'   : 'text-violet-300'
-              }>
-                {entry.text}
-              </span>
-            </div>
+          <div key={i} className={`space-y-1.5 ${
+            entry.role === 'user'   ? 'pl-3 border-l-2 border-slate-700'  :
+            entry.role === 'error'  ? 'pl-3 border-l-2 border-red-700'    :
+            entry.role === 'picker' ? 'pl-3 border-l-2 border-amber-700'  :
+                                      'pl-3 border-l-2 border-violet-700'
+          }`}>
+            {/* Coin picker row */}
+            {entry.role === 'picker' && (
+              <div className="space-y-2">
+                <span className="text-amber-400 flex items-center gap-1.5">
+                  <span>?</span>
+                  <span>No coin detected — select preferred coin:</span>
+                </span>
+                <div className="flex flex-wrap gap-1.5 ml-4">
+                  {KNOWN_COINS.map(coin => (
+                    <button
+                      key={coin}
+                      onClick={() => pickCoin(coin, entry.originalMsg)}
+                      disabled={loading}
+                      className={`px-2.5 py-1 rounded border text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                        midnightEnabled
+                          ? 'border-violet-700 text-violet-300 bg-violet-950/30 hover:bg-violet-800/50'
+                          : 'border-red-700 text-red-300 bg-red-950/30 hover:bg-red-800/50'
+                      }`}
+                    >
+                      {coin}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Normal user / error / agent rows */}
+            {entry.role !== 'picker' && (
+              <div className="flex items-start gap-2">
+                <span className={`shrink-0 ${
+                  entry.role === 'user'  ? 'text-slate-500' :
+                  entry.role === 'error' ? 'text-red-500'   : 'text-violet-400'
+                }`}>
+                  {entry.role === 'user' ? '>' : entry.role === 'error' ? '✗' : '⚡'}
+                </span>
+                <span className={
+                  entry.role === 'user'  ? 'text-slate-300' :
+                  entry.role === 'error' ? 'text-red-400'   : 'text-violet-300'
+                }>
+                  {entry.text}
+                </span>
+              </div>
+            )}
 
             {/* Parsed signal preview card */}
             {entry.role === 'agent' && entry.parsed && (
@@ -166,6 +235,13 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
                     : entry.parsed.signal.risk_level === 'HIGH' ? 'bg-red-900/50 text-red-400'
                     : 'bg-amber-900/50 text-amber-400'
                   }`}>{entry.parsed.signal.risk_level} RISK</span>
+                  {/* Timestamp */}
+                  {entry.generatedAt && (
+                    <span className="ml-auto text-slate-600 text-xs flex items-center gap-1">
+                      <CheckCircle2 size={9} className="text-emerald-700" />
+                      signal generated {relativeTime(entry.generatedAt)}
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-1.5 text-xs">
                   <div className="bg-slate-800/60 rounded px-2 py-1">
@@ -194,7 +270,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
                     ✎ Edit in form
                   </button>
                   <button
-                    onClick={() => handleAutoExecute(entry)}
+                    onClick={() => onAutoExecute?.(entry.parsed)}
                     disabled={disabled || !midnight?.submitProof}
                     className={`flex-1 py-1.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${accentBtn}`}
                   >
