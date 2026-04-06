@@ -2,6 +2,8 @@ import hashlib
 import json
 import uuid
 import base64
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -11,7 +13,7 @@ import os
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import AzureOpenAI
@@ -34,6 +36,69 @@ client = AzureOpenAI(
 )
 
 DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o-mini")
+
+# ── Rate limiter ───────────────────────────────────────────────────────────────
+# Sliding-window per-IP limiter applied to all Azure OpenAI endpoints.
+# Limits are intentionally generous enough for a live demo but prevent runaway
+# costs if the key is discovered or the demo goes viral.
+#
+#   signal / agent (single-turn) : 20 req / 60 s  per IP
+#   conversation   (multi-turn)  :  5 req / 60 s  per IP  (more tokens / call)
+#   global across all endpoints  : 60 req / 60 s  total   (hard safety cap)
+# ─────────────────────────────────────────────────────────────────────────────
+_WINDOW_S   = 60          # sliding window size in seconds
+_PER_IP     = 20          # max single-turn AOAI calls per IP per window
+_PER_IP_CONV= 5           # max multi-turn AOAI calls per IP per window
+_GLOBAL_CAP = 60          # hard global cap across ALL IPs per window
+
+# { ip: deque of timestamps }
+_ip_windows: dict[str, deque] = defaultdict(deque)
+_conv_windows: dict[str, deque] = defaultdict(deque)
+_global_window: deque = deque()
+
+
+def _get_ip(request: Request) -> str:
+    """Return the real client IP, honouring X-Forwarded-For for proxied setups."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_rate(window: deque, limit: int, window_s: int = _WINDOW_S) -> bool:
+    """
+    Slide the window and return True if the request is allowed.
+    Mutates *window* in-place on success.
+    """
+    now = time.monotonic()
+    # Drop timestamps outside the window
+    while window and now - window[0] > window_s:
+        window.popleft()
+    if len(window) >= limit:
+        return False
+    window.append(now)
+    return True
+
+
+def _aoai_rate_check(request: Request, *, conv: bool = False) -> None:
+    """Raise HTTP 429 if any rate limit is exceeded."""
+    ip = _get_ip(request)
+
+    # 1. Global cap
+    if not _check_rate(_global_window, _GLOBAL_CAP):
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy — global AI rate limit reached. Try again in a moment.",
+        )
+
+    # 2. Per-IP cap (conversation endpoints use a tighter limit)
+    ip_store = _conv_windows if conv else _ip_windows
+    limit    = _PER_IP_CONV  if conv else _PER_IP
+    if not _check_rate(ip_store[ip], limit):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit: max {limit} AI requests per {_WINDOW_S}s per client. Please wait.",
+        )
 
 # ── Persistent trade storage ───────────────────────────────────────────────────
 TRADES_FILE = Path(__file__).parent / "trades.json"
@@ -96,7 +161,8 @@ class TradeExecuteRequest(BaseModel):
 # --- Endpoints ---
 
 @app.post("/api/signal")
-async def generate_signal(req: SignalRequest):
+async def generate_signal(req: SignalRequest, request: Request):
+    _aoai_rate_check(request)
     system_prompt = (
         "You are a proprietary AI quant trading signal engine. "
         "Given market data, return ONLY a JSON object with: "
@@ -340,8 +406,9 @@ Return ONLY a JSON object with these fields. If the message is unclear or not a 
 
 
 @app.post("/api/agent")
-async def agent_trade(req: AgentRequest):
+async def agent_trade(req: AgentRequest, request: Request):
     """Parse a natural language message into a structured trade signal."""
+    _aoai_rate_check(request)
     response = client.chat.completions.create(
         model=DEPLOYMENT_NAME,
         messages=[
@@ -357,8 +424,9 @@ async def agent_trade(req: AgentRequest):
 
 
 @app.post("/api/agent/conversation")
-async def agent_conversation(req: AgentConversationRequest):
+async def agent_conversation(req: AgentConversationRequest, request: Request):
     """Multi-turn agent conversation — maintains context for follow-up commands."""
+    _aoai_rate_check(request, conv=True)
     messages = [{"role": "system", "content": AGENT_SYSTEM}]
     for m in req.messages:
         messages.append({"role": m.role, "content": m.content})
