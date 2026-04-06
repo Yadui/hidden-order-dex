@@ -303,3 +303,105 @@ async def verify_proof(trade_id: str):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# ── /api/agent ─────────────────────────────────────────────────────────────────
+# Natural language → parse intent → fetch live market data → generate signal.
+# Does NOT execute — returns the parsed intent + signal so the frontend can
+# confirm + trigger ZK proof generation via /api/trade/execute.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AgentRequest(BaseModel):
+    message: str                      # raw NL input from whale
+    wallet_id: Optional[str] = None   # obfuscated whale ID
+
+class AgentMessage(BaseModel):
+    role: str   # "user" | "assistant"
+    content: str
+
+class AgentConversationRequest(BaseModel):
+    messages: list[AgentMessage]      # full conversation history
+    wallet_id: Optional[str] = None
+
+
+AGENT_SYSTEM = """You are AlphaShield — an AI trading agent that converts natural language instructions into structured trade signals.
+
+Given a user message, extract:
+- asset: one of BTC, ETH, SOL, XRP, AVAX, LINK, ADA, DOT (infer from context, default ETH)
+- amount: numeric amount to trade (default 1.0 if not specified)
+- intent: BUY or SELL (infer from bullish/bearish/long/short/buy/sell language)
+- confidence: 70-100 (infer from certainty language: "maybe"=72, "I think"=78, "definitely"=92, "strong signal"=88)
+- stop_loss_pct: 1-20 (infer risk tolerance: "risky"=15, "safe"=5, default=8)
+- position_pct: 1-50 (infer from "all in"=40, "small"=5, "some"=15, default=15)
+- reasoning: 1-2 sentences explaining the trade rationale you inferred
+- risk_level: LOW/MEDIUM/HIGH
+
+Return ONLY a JSON object with these fields. If the message is unclear or not a trade instruction, set "error" field with a helpful message."""
+
+
+@app.post("/api/agent")
+async def agent_trade(req: AgentRequest):
+    """Parse a natural language message into a structured trade signal."""
+    response = client.chat.completions.create(
+        model=DEPLOYMENT_NAME,
+        messages=[
+            {"role": "system", "content": AGENT_SYSTEM},
+            {"role": "user", "content": req.message},
+        ],
+        response_format={"type": "json_object"},
+    )
+    parsed = json.loads(response.choices[0].message.content)
+    if "error" in parsed:
+        return {"ok": False, "error": parsed["error"]}
+    return {"ok": True, "parsed": parsed}
+
+
+@app.post("/api/agent/conversation")
+async def agent_conversation(req: AgentConversationRequest):
+    """Multi-turn agent conversation — maintains context for follow-up commands."""
+    messages = [{"role": "system", "content": AGENT_SYSTEM}]
+    for m in req.messages:
+        messages.append({"role": m.role, "content": m.content})
+
+    response = client.chat.completions.create(
+        model=DEPLOYMENT_NAME,
+        messages=messages,
+        response_format={"type": "json_object"},
+    )
+    parsed = json.loads(response.choices[0].message.content)
+    if "error" in parsed:
+        return {"ok": False, "error": parsed["error"]}
+    return {"ok": True, "parsed": parsed}
+
+
+# ── /api/whale-profile ─────────────────────────────────────────────────────────
+# Returns obfuscated whale profile stats derived from trade history.
+# No wallet address or PII is ever returned — only aggregate provable metrics.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/whale-profile/{wallet_hash}")
+async def whale_profile(wallet_hash: str):
+    """Return obfuscated performance stats for a whale identity hash."""
+    all_trades = list(trades.values())
+    total       = len(all_trades)
+    real_proofs = sum(1 for t in all_trades if t["proof"].get("zk_mode") == "real")
+    assets_used = list({t["asset"] for t in all_trades})
+    sell_count  = sum(1 for t in all_trades if t["signal"].get("direction") == "SELL")
+    buy_count   = total - sell_count
+    avg_conf    = (
+        sum(t["signal"].get("confidence", 0) for t in all_trades) / total
+        if total > 0 else 0
+    )
+    return {
+        "whale_id":         wallet_hash[:8].upper(),   # first 8 chars of hash only
+        "total_trades":     total,
+        "real_zk_proofs":   real_proofs,
+        "mock_zk_proofs":   total - real_proofs,
+        "assets_traded":    assets_used,
+        "buy_count":        buy_count,
+        "sell_count":       sell_count,
+        "avg_confidence":   round(avg_conf, 1),
+        "bytes_exposed":    0,
+        "strategy_hidden":  True,
+    }
+

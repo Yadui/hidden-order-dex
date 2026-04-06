@@ -1,5 +1,69 @@
-import { TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Zap, Bot } from 'lucide-react'
+import { TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Zap, Bot, Lock, Loader2 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+
+// ── Obfuscated whale profile ──────────────────────────────────────────────────
+function WhaleProfile({ midnightEnabled }) {
+  const [profile, setProfile] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/whale-profile/alphashield-demo-whale')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setProfile(d))
+      .catch(() => {})
+  }, [])
+
+  const accentBorder = midnightEnabled ? 'border-violet-800/50' : 'border-red-800/50'
+  const cardBg       = midnightEnabled ? 'bg-[#10101f]'         : 'bg-[#150808]'
+
+  if (!profile) return null
+  return (
+    <div className={`rounded-xl border ${accentBorder} ${cardBg} p-4`}>
+      <div className="flex items-center gap-3 mb-3">
+        {/* Obfuscated avatar */}
+        <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm ${
+          midnightEnabled ? 'border-violet-600 bg-violet-950/60 text-violet-300' : 'border-red-600 bg-red-950/60 text-red-300'
+        }`}>
+          {profile.whale_id.slice(0, 2)}
+        </div>
+        <div>
+          <p className="text-white font-bold text-sm">Whale #{profile.whale_id}</p>
+          <div className="flex items-center gap-1.5">
+            <Lock size={10} className={midnightEnabled ? 'text-violet-500' : 'text-red-500'} />
+            <span className="text-slate-500 text-xs font-mono">identity hidden · ZK-verified execution</span>
+          </div>
+        </div>
+        <span className={`ml-auto text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+          midnightEnabled
+            ? 'text-emerald-400 border-emerald-800 bg-emerald-950/40'
+            : 'text-amber-400 border-amber-800 bg-amber-950/40'
+        }`}>
+          {profile.strategy_hidden ? '🔒 Strategy Hidden' : '⚠️ Exposed'}
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {[
+          { label: 'Trades',       value: profile.total_trades },
+          { label: 'Real ZK',      value: profile.real_zk_proofs },
+          { label: 'Avg Conf',     value: `${profile.avg_confidence}%` },
+          { label: '0 bytes',      value: 'exposed', highlight: true },
+        ].map(({ label, value, highlight }) => (
+          <div key={label} className="bg-slate-900/60 rounded-lg px-2 py-1.5 text-center">
+            <p className="text-slate-600 text-xs uppercase tracking-wide">{label}</p>
+            <p className={`text-sm font-mono font-bold ${highlight ? 'text-emerald-400' : 'text-white'}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-2.5">
+        {(profile.assets_traded ?? []).map(a => (
+          <span key={a} className={`text-xs font-mono px-2 py-0.5 rounded border ${
+            midnightEnabled ? 'border-violet-700/50 text-violet-400 bg-violet-950/30' : 'border-red-700/50 text-red-400 bg-red-950/30'
+          }`}>{a}</span>
+        ))}
+        <span className="text-slate-600 text-xs self-center ml-1">traded</span>
+      </div>
+    </div>
+  )
+}
 
 // ── MEV Bot simulator — shown when Midnight is OFF ──────────────────────────
 function FrontRunAttack({ trade }) {
@@ -37,8 +101,11 @@ function FrontRunAttack({ trade }) {
 }
 
 function TradeCard({ trade, midnightEnabled, isNew }) {
-  const [copied, setCopied] = useState(false)
-  const [flash, setFlash] = useState(isNew)
+  const [copied,    setCopied]    = useState(false)
+  const [executing, setExecuting] = useState(false)
+  const [execResult,setExecResult]= useState(null)
+  const [execError, setExecError] = useState(null)
+  const [flash,     setFlash]     = useState(isNew)
 
   useEffect(() => {
     if (isNew) {
@@ -48,6 +115,7 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
     }
   }, [isNew])
 
+  // Copy-to-clipboard (legacy fallback)
   function handleCopy() {
     const text = [
       `Asset: ${trade.asset}`,
@@ -61,6 +129,73 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
     navigator.clipboard.writeText(text).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  // One-click copy-execute: follower generates their OWN ZK proof for same params
+  async function handleCopyExecute() {
+    if (executing) return
+    setExecuting(true)
+    setExecError(null)
+    setExecResult(null)
+    try {
+      // Call midnight-service to generate a follower ZK proof for the same trade
+      const proofRes = await fetch('http://localhost:3006/submit-proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asset:     trade.asset,
+          amount:    trade.amount,
+          price:     trade.price,
+          timestamp: new Date().toISOString(),
+          signal:    {
+            direction:     trade.signal?.direction ?? 'BUY',
+            confidence:    trade.signal?.confidence ?? 75,
+            reasoning:     'Copy trade — follower executing mirrored position',
+            risk_level:    trade.signal?.risk_level ?? 'MEDIUM',
+            stop_loss_pct: trade.signal?.stop_loss_pct ?? 8,
+            position_pct:  trade.signal?.position_pct ?? 15,
+          },
+        }),
+        signal: AbortSignal.timeout(90_000),
+      })
+      const proofData = proofRes.ok ? await proofRes.json() : { proofHash: null, mode: 'mock' }
+
+      // Submit to backend as a follower copy trade
+      const execRes = await fetch('/api/trade/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asset:  trade.asset,
+          amount: trade.amount,
+          price:  trade.price,
+          signal: {
+            direction:     trade.signal?.direction ?? 'BUY',
+            confidence:    trade.signal?.confidence ?? 75,
+            reasoning:     '[COPY TRADE — follower ZK proof]',
+            risk_level:    trade.signal?.risk_level ?? 'MEDIUM',
+            stop_loss_pct: trade.signal?.stop_loss_pct ?? 8,
+            position_pct:  trade.signal?.position_pct ?? 15,
+            encrypted_payload: '[MIDNIGHT ENCRYPTED 🔒]',
+          },
+          proof_override: {
+            proof_hash:     proofData.proofHash,
+            zk_mode:        proofData.mode ?? 'mock',
+            reasoning_hash: proofData.reasoningHash,
+            proof_preimage: proofData.proofPreimage ?? null,
+            proof_size_bytes: proofData.proofSizeBytes ?? null,
+            risk_committed: proofData.riskCommitted ?? null,
+            strategy_version: 2,
+          },
+        }),
+      })
+      if (!execRes.ok) throw new Error(`Backend error: ${execRes.status}`)
+      const result = await execRes.json()
+      setExecResult({ tradeId: result.trade_id, mode: proofData.mode ?? 'mock' })
+    } catch (e) {
+      setExecError(e.message)
+    } finally {
+      setExecuting(false)
+    }
   }
 
   const cardBg = midnightEnabled ? 'bg-[#10101f]' : 'bg-[#150808]'
@@ -160,23 +295,61 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
       {/* Front-running attack animation when Midnight is OFF */}
       {!midnightEnabled && <FrontRunAttack trade={trade} />}
 
-      {/* Copy button */}
-      <button
-        onClick={handleCopy}
-        className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-          copied
-            ? 'bg-emerald-800 text-emerald-200'
-            : midnightEnabled
-            ? 'bg-violet-700 hover:bg-violet-600 text-white'
-            : 'bg-red-700 hover:bg-red-600 text-white'
-        }`}
-      >
-        {copied ? (
-          <><CheckCircle size={14} /> Trade Copied!</>
-        ) : (
-          <><Copy size={14} /> Copy Trade</>
-        )}
-      </button>
+      {/* Execution result */}
+      {execResult && (
+        <div className="bg-emerald-950/40 border border-emerald-700 rounded-lg px-3 py-2 flex items-center gap-2">
+          <CheckCircle size={13} className="text-emerald-400 shrink-0" />
+          <div className="text-xs font-mono">
+            <span className="text-emerald-300 font-bold">Copy executed!</span>
+            <span className="text-emerald-700 ml-2">{execResult.tradeId?.slice(0, 16)}…</span>
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${
+              execResult.mode === 'real' ? 'bg-violet-900/60 text-violet-300' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {execResult.mode === 'real' ? '⚡ ZK real' : '🔵 mock'}
+            </span>
+          </div>
+        </div>
+      )}
+      {execError && (
+        <p className="text-red-400 text-xs bg-red-950/40 border border-red-800 rounded px-3 py-2 font-mono">
+          ✗ {execError}
+        </p>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        {/* One-click copy-execute (ZK proof + real submission) */}
+        <button
+          onClick={handleCopyExecute}
+          disabled={executing || !!execResult}
+          className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+            execResult
+              ? 'bg-emerald-800 text-emerald-200'
+              : midnightEnabled
+              ? 'bg-violet-700 hover:bg-violet-600 text-white'
+              : 'bg-red-700 hover:bg-red-600 text-white'
+          }`}
+        >
+          {executing ? (
+            <><Loader2 size={14} className="animate-spin" />Generating ZK proof…</>
+          ) : execResult ? (
+            <><CheckCircle size={14} />Executed!</>
+          ) : midnightEnabled ? (
+            <><Lock size={14} />Copy Trade (ZK Protected)</>
+          ) : (
+            <><AlertTriangle size={14} />Copy Trade (Unprotected)</>
+          )}
+        </button>
+
+        {/* Clipboard fallback */}
+        <button
+          onClick={handleCopy}
+          title="Copy details to clipboard"
+          className="px-3 py-2.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all"
+        >
+          {copied ? <CheckCircle size={14} className="text-emerald-400" /> : <Copy size={14} />}
+        </button>
+      </div>
     </div>
   )
 }
@@ -202,6 +375,9 @@ export default function FollowerView({ midnightEnabled, trades }) {
 
   return (
     <div className="space-y-6">
+      {/* Obfuscated whale profile */}
+      <WhaleProfile midnightEnabled={midnightEnabled} />
+
       {/* Header */}
       <div className={`rounded-xl border ${accentBorder} ${cardBg} p-5`}>
         <div className="flex items-center justify-between">

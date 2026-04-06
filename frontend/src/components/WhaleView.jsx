@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Zap, Lock, AlertTriangle, CheckCircle2, Cpu, Loader2, RotateCcw, RefreshCw } from 'lucide-react'
 import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import MarketOverview from './MarketOverview.jsx'
+import VibeTerminal from './VibeTerminal.jsx'
 import { fetchAssetData, SOURCE_LABEL } from '../utils/priceFeeds.js'
 
 const ASSETS = ['ETH', 'BTC', 'SOL', 'XRP', 'AVAX', 'LINK', 'ADA', 'DOT']
@@ -165,6 +166,68 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
     }
   }
 
+  // ── Agent: pre-fill form from vibe terminal parsed result ──────────────────
+  function handleSignalParsed({ asset: a, amount: amt, signal: sig }) {
+    if (a)   { setAsset(a);       fetchLivePrice(a) }
+    if (amt) { setAmount(amt) }
+    if (sig) { setSignal(sig);    setTradeResult(null); setTradeError(null) }
+  }
+
+  // ── Agent: auto-execute from vibe terminal (skip form entirely) ─────────────
+  async function handleAutoExecute({ asset: a, amount: amt, signal: sig }) {
+    if (!sig || !midnight) return
+    // Pre-fill state so the ZK step progress is visible
+    if (a)   setAsset(a)
+    if (amt) setAmount(amt)
+    setSignal(sig)
+    setTradeResult(null)
+    setTradeError(null)
+    setLoadingTrade(true)
+    setZkStep(0)
+
+    const liveP = livePrice ?? Number(price)
+    let stepIdx = 0
+    const stepTimer = setInterval(() => {
+      stepIdx = Math.min(stepIdx + 1, ZK_STEPS.length - 1)
+      setZkStep(stepIdx)
+    }, 4000)
+
+    try {
+      const timestamp    = new Date().toISOString()
+      const proofResult  = await midnight.submitProof({ asset: a ?? asset, amount: Number(amt ?? amount), price: liveP, timestamp, signal: sig })
+
+      const res = await fetch('/api/trade/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asset: a ?? asset, amount: Number(amt ?? amount), price: liveP, signal: sig,
+          proof_override: {
+            proof_hash:         proofResult.proofHash,
+            contract_address:   proofResult.contractAddress,
+            tx_hash:            proofResult.txHash,
+            reasoning_hash:     proofResult.reasoningHash,
+            zk_mode:            proofResult.mode,
+            proof_bytes:        proofResult.proofBytes ?? null,
+            proof_preimage:     proofResult.proofPreimage ?? null,
+            proof_size_bytes:   proofResult.proofSizeBytes ?? null,
+            proof_generated_ms: proofResult.proofGeneratedMs ?? null,
+            risk_committed:     proofResult.riskCommitted ?? null,
+            strategy_version:   proofResult.strategyVersion ?? 2,
+          },
+        }),
+      })
+      if (!res.ok) throw new Error(`Backend error: ${res.status}`)
+      const data = await res.json()
+      setTradeResult({ ...data, zkMode: proofResult.mode, contractAddress: proofResult.contractAddress, proofSizeBytes: proofResult.proofSizeBytes, proofGeneratedMs: proofResult.proofGeneratedMs, riskCommitted: proofResult.riskCommitted, strategyVersion: proofResult.strategyVersion ?? 2 })
+      onTradeExecuted()
+    } catch (e) {
+      setTradeError(e.message)
+    } finally {
+      clearInterval(stepTimer)
+      setLoadingTrade(false)
+    }
+  }
+
   // ── Execute trade ───────────────────────────────────────────────────────────
   async function executeTrade() {
     if (!signal) return
@@ -241,6 +304,15 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
           </button>
         </div>
       )}
+
+      {/* ── Vibe Terminal ────────────────────────────────────────────────── */}
+      <VibeTerminal
+        midnightEnabled={midnightEnabled}
+        onSignalParsed={handleSignalParsed}
+        onAutoExecute={handleAutoExecute}
+        midnight={midnight}
+        disabled={loadingTrade}
+      />
 
       {/* ── Market Overview ──────────────────────────────────────────────── */}
       <MarketOverview
