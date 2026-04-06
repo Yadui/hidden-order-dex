@@ -161,7 +161,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
       </div>
 
       {/* History */}
-      <div ref={historyRef} className="px-4 py-3 space-y-2.5 min-h-[120px] max-h-[260px] overflow-y-auto font-mono text-xs">
+      <div ref={historyRef} className="px-4 py-3 space-y-2.5 h-[220px] overflow-y-auto font-mono text-xs">
         {history.length === 0 && (
           <p className="text-slate-700 italic">
             Describe your trade in plain English. Mention a coin (BTC, ETH, SOL …) or pick one when prompted.
