@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, RefreshCw } from 'lucide-react'
-import { fetchMarketsData, fetchCoinChart, SOURCE_LABEL } from '../utils/priceFeeds.js'
+import { X, RefreshCw, Search } from 'lucide-react'
+import { fetchMarketsData, fetchCoinChart, searchCoins, fetchCoinById, SOURCE_LABEL } from '../utils/priceFeeds.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const COIN_IDS   = 'bitcoin,ethereum,solana,matic-network,avalanche-2,chainlink,cardano,polkadot'
+const COIN_IDS   = 'bitcoin,ethereum,solana,ripple,avalanche-2,chainlink,cardano,polkadot'
 const TICKER_MAP = {
-  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', 'matic-network': 'MATIC',
+  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', ripple: 'XRP',
   'avalanche-2': 'AVAX', chainlink: 'LINK', cardano: 'ADA', polkadot: 'DOT',
 }
 const TIMEFRAMES = [
@@ -390,11 +390,15 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
 
 // ── MarketOverview (main export) ──────────────────────────────────────────────
 export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
-  const [coins,       setCoins]       = useState([])
-  const [loading,     setLoading]     = useState(true)
-  const [lastUpdated, setLastUpdated] = useState(null)
-  const [selectedCoin,setSelectedCoin]= useState(null)
-  const [dataSource,  setDataSource]  = useState(null)
+  const [coins,        setCoins]       = useState([])
+  const [loading,      setLoading]     = useState(true)
+  const [lastUpdated,  setLastUpdated] = useState(null)
+  const [selectedCoin, setSelectedCoin]= useState(null)
+  const [dataSource,   setDataSource]  = useState(null)
+  const [searchQuery,  setSearchQuery] = useState('')
+  const [searchHits,   setSearchHits]  = useState([])
+  const [searchBusy,   setSearchBusy]  = useState(false)
+  const [searchOpen,   setSearchOpen]  = useState(false)
 
   async function fetchMarkets() {
     try {
@@ -412,6 +416,30 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
     const iv = setInterval(fetchMarkets, 60000)
     return () => clearInterval(iv)
   }, [])
+
+  // Debounced coin search via CoinGecko /search
+  useEffect(() => {
+    if (!searchQuery.trim()) { setSearchHits([]); setSearchOpen(false); return }
+    const t = setTimeout(async () => {
+      setSearchBusy(true)
+      const results = await searchCoins(searchQuery)
+      setSearchHits(results)
+      setSearchOpen(results.length > 0)
+      setSearchBusy(false)
+    }, 350)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
+  async function handleSearchSelect(cgId) {
+    setSearchQuery('')
+    setSearchOpen(false)
+    // If already in the loaded list, open directly
+    const existing = coins.find(c => c.id === cgId)
+    if (existing) { setSelectedCoin(existing); return }
+    // Otherwise fetch on the fly
+    const coin = await fetchCoinById(cgId)
+    if (coin) setSelectedCoin(coin)
+  }
 
   const borderColor = midnightEnabled ? 'border-violet-800/40' : 'border-red-800/40'
   const cardBg      = midnightEnabled ? 'bg-[#10101f]'         : 'bg-[#150808]'
@@ -455,6 +483,60 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
               <RefreshCw size={13} />
             </button>
           </div>
+        </div>
+
+        {/* Column headers */}
+        {/* Search bar */}
+        <div className="relative px-4 py-2.5 border-b border-slate-800/40">
+          <div className="relative flex items-center">
+            <Search size={13} className="absolute left-3 text-slate-600 pointer-events-none" />
+            <input
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true) }}
+              onFocus={() => searchQuery && setSearchOpen(true)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+              placeholder="Search any coin…"
+              className="w-full bg-slate-900 border border-slate-700/60 hover:border-slate-600 focus:border-violet-600 rounded-lg pl-8 pr-4 py-1.5 text-sm text-white placeholder-slate-600 font-mono focus:outline-none transition-colors"
+            />
+            {searchBusy && (
+              <span className="absolute right-3 text-slate-600 text-xs font-mono animate-pulse">searching…</span>
+            )}
+            {searchQuery && !searchBusy && (
+              <button
+                onMouseDown={() => { setSearchQuery(''); setSearchOpen(false) }}
+                className="absolute right-3 text-slate-600 hover:text-slate-300 transition-colors text-xs"
+              >✕</button>
+            )}
+          </div>
+
+          {/* Search dropdown */}
+          {searchOpen && searchHits.length > 0 && (
+            <div className="absolute left-4 right-4 top-full mt-1 z-50 bg-[#0c0c1e] border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden">
+              {searchHits.map(hit => {
+                const isLoaded = coins.some(c => c.id === hit.id)
+                return (
+                  <button
+                    key={hit.id}
+                    onMouseDown={() => handleSearchSelect(hit.id)}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-800/60 transition-colors text-left group"
+                  >
+                    {hit.thumb
+                      ? <img src={hit.thumb} alt={hit.name} className="w-5 h-5 rounded-full flex-shrink-0" />
+                      : <div className="w-5 h-5 rounded-full bg-slate-700 flex-shrink-0" />}
+                    <span className="text-white text-sm font-medium group-hover:text-violet-300 transition-colors">{hit.name}</span>
+                    <span className="text-slate-500 text-xs font-mono">{hit.symbol?.toUpperCase()}</span>
+                    {hit.market_cap_rank && (
+                      <span className="text-slate-600 text-xs font-mono ml-auto">#{hit.market_cap_rank}</span>
+                    )}
+                    {isLoaded
+                      ? <span className="text-violet-400 text-xs font-mono bg-violet-950/50 px-1.5 py-0.5 rounded border border-violet-800/40 ml-1">in list</span>
+                      : <span className="text-slate-600 text-xs font-mono bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-700/40 ml-1">load</span>
+                    }
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Column headers */}

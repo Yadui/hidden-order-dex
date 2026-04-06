@@ -4,13 +4,13 @@ import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import MarketOverview from './MarketOverview.jsx'
 import { fetchAssetData, SOURCE_LABEL } from '../utils/priceFeeds.js'
 
-const ASSETS = ['ETH', 'BTC', 'SOL', 'MATIC', 'AVAX', 'LINK', 'ADA', 'DOT']
+const ASSETS = ['ETH', 'BTC', 'SOL', 'XRP', 'AVAX', 'LINK', 'ADA', 'DOT']
 
 const COINGECKO_IDS = {
   ETH:  'ethereum',
   BTC:  'bitcoin',
   SOL:  'solana',
-  MATIC:'matic-network',
+  XRP:  'ripple',
   AVAX: 'avalanche-2',
   LINK: 'chainlink',
   ADA:  'cardano',

@@ -12,18 +12,18 @@
 
 // ── Symbol / ID mappings ──────────────────────────────────────────────────────
 const BINANCE_SYMBOL = {
-  BTC:  'BTCUSDT', ETH:  'ETHUSDT', SOL:  'SOLUSDT', MATIC: 'MATICUSDT',
+  BTC:  'BTCUSDT', ETH:  'ETHUSDT', SOL:  'SOLUSDT', XRP:  'XRPUSDT',
   AVAX: 'AVAXUSDT', LINK: 'LINKUSDT', ADA: 'ADAUSDT',  DOT: 'DOTUSDT',
 }
 
 const COINCAP_ID = {
-  BTC:  'bitcoin',   ETH:  'ethereum',  SOL:  'solana',   MATIC: 'matic-network',
+  BTC:  'bitcoin',   ETH:  'ethereum',  SOL:  'solana',   XRP:  'xrp',
   AVAX: 'avalanche', LINK: 'chainlink', ADA:  'cardano',  DOT:  'polkadot',
 }
 
 // Maps CoinGecko coin ID → ticker (for Binance/CoinCap lookups in market data)
 const TICKER_BY_CGID = {
-  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', 'matic-network': 'MATIC',
+  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', ripple: 'XRP',
   'avalanche-2': 'AVAX', chainlink: 'LINK', cardano: 'ADA', polkadot: 'DOT',
 }
 
@@ -296,4 +296,37 @@ export const SOURCE_LABEL = {
   binance:   { text: 'Binance',   color: 'text-amber-400'  },
   coincap:   { text: 'CoinCap',   color: 'text-blue-400'   },
   error:     { text: 'Error',     color: 'text-red-500'    },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// searchCoins(query)
+//
+// Queries CoinGecko /search and returns up to 8 matching coin entries.
+// Used by the search UI to find any coin, not just the hardcoded list.
+// Returns an array of { id, name, symbol, thumb, market_cap_rank } objects.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function searchCoins(query) {
+  try {
+    const data = await tryFetch(
+      `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query.trim())}`
+    )
+    return (data.coins ?? []).slice(0, 8)
+  } catch { return [] }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fetchCoinById(id)
+//
+// Fetches full market data for a single CoinGecko coin ID.
+// Used when a search result is clicked for a coin not in the hardcoded list.
+// Returns a coin object in CoinGecko /markets shape, or null.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function fetchCoinById(id) {
+  try {
+    const data = await tryFetch(
+      `https://api.coingecko.com/api/v3/coins/markets` +
+      `?vs_currency=usd&ids=${encodeURIComponent(id)}&sparkline=true&price_change_percentage=1h,24h,7d`
+    )
+    return Array.isArray(data) && data.length > 0 ? data[0] : null
+  } catch { return null }
 }
