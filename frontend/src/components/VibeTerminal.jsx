@@ -16,6 +16,17 @@ const EXAMPLES = [
 ]
 
 const KNOWN_COINS = ['BTC', 'ETH', 'SOL', 'XRP', 'AVAX', 'LINK', 'ADA', 'DOT']
+const MAX_LEN = 280
+const INJECTION_RE = /<\s*script|javascript:|on\w+\s*=|data:\s*text\/html/i
+
+function validateTerminalInput(text) {
+  const t = text.trim()
+  if (!t)           return 'Please enter a trade instruction'
+  if (t.length < 3) return 'Too short — describe your trade'
+  if (text.length > MAX_LEN) return `Max ${MAX_LEN} characters`
+  if (INJECTION_RE.test(text)) return 'Invalid input'
+  return null
+}
 
 function detectCoin(text) {
   const upper = text.toUpperCase()
@@ -37,6 +48,7 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
   const [loading,  setLoading]  = useState(false)
   const [example,  setExample]  = useState(0)
   const [tick,     setTick]     = useState(0)    // triggers re-render for relative timestamps
+  const [inputError, setInputError] = useState(null)
   const inputRef    = useRef(null)
   const historyRef  = useRef(null)
 
@@ -112,7 +124,10 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
 
   async function submit() {
     const msg = input.trim()
-    if (!msg || loading) return
+    const err = validateTerminalInput(input)
+    if (err) { setInputError(err); return }
+    if (loading) return
+    setInputError(null)
     setInput('')
     setHistory(h => [...h, { role: 'user', text: msg }])
 
@@ -307,24 +322,33 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
       </div>
 
       {/* Input row */}
-      <div className={`flex items-center gap-2 px-3 pb-3 pt-2 border-t ${accentBorder}`}>
-        <span className={`text-xs font-mono shrink-0 ${midnightEnabled ? 'text-violet-500' : 'text-red-500'}`}>$</span>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={EXAMPLES[example]}
-          disabled={loading}
-          className="flex-1 bg-transparent text-white text-xs font-mono placeholder-slate-700 focus:outline-none disabled:opacity-50"
-        />
-        <button
-          onClick={submit}
-          disabled={loading || !input.trim()}
-          className={`shrink-0 px-3 py-1 rounded text-xs font-bold transition-all disabled:opacity-30 ${accentBtn}`}
-        >
-          <Zap size={11} className="inline mr-1" />{loading ? '…' : 'Send'}
-        </button>
+      <div className={`flex flex-col gap-1 px-3 pb-3 pt-2 border-t ${accentBorder}`}>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-mono shrink-0 ${midnightEnabled ? 'text-violet-500' : 'text-red-500'}`}>$</span>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => { setInput(e.target.value); if (inputError) setInputError(validateTerminalInput(e.target.value)) }}
+            onKeyDown={handleKeyDown}
+            placeholder={EXAMPLES[example]}
+            disabled={loading}
+            maxLength={MAX_LEN + 10}
+            className={`flex-1 bg-transparent text-xs font-mono placeholder-slate-700 focus:outline-none disabled:opacity-50 ${
+              inputError ? 'text-red-300' : 'text-white'
+            }`}
+          />
+          <span className={`text-xs font-mono shrink-0 tabular-nums ${
+            input.length > MAX_LEN ? 'text-red-500' : input.length > MAX_LEN * 0.85 ? 'text-amber-500' : 'text-slate-700'
+          }`}>{input.length}/{MAX_LEN}</span>
+          <button
+            onClick={submit}
+            disabled={loading || !input.trim()}
+            className={`shrink-0 px-3 py-1 rounded text-xs font-bold transition-all disabled:opacity-30 ${accentBtn}`}
+          >
+            <Zap size={11} className="inline mr-1" />{loading ? '…' : 'Send'}
+          </button>
+        </div>
+        {inputError && <p className="text-red-400 text-xs pl-4">{inputError}</p>}
       </div>
     </div>
   )

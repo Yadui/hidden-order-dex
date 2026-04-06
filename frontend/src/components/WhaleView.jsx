@@ -78,6 +78,40 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
   const [loadingTrade,   setLoadingTrade]   = useState(false)
   const [zkStep,         setZkStep]         = useState(0)
   const [tradeError,     setTradeError]     = useState(null)
+
+  // ── Field-level validation errors ──────────────────────────────────────────
+  const [priceError,  setPriceError]  = useState(null)
+  const [volumeError, setVolumeError] = useState(null)
+  const [amountError, setAmountError] = useState(null)
+
+  function validatePrice(v) {
+    const n = Number(v)
+    if (v === '' || v === null || v === undefined) return 'Price is required'
+    if (isNaN(n)) return 'Price must be a number'
+    if (n <= 0)   return 'Price must be greater than 0'
+    if (n > 10_000_000) return 'Price seems unrealistically high'
+    return null
+  }
+
+  function validateVolume(v) {
+    const n = Number(v)
+    if (v === '' || v === null || v === undefined) return 'Volume change is required'
+    if (isNaN(n)) return 'Must be a number'
+    if (n < -100) return 'Cannot be less than -100%'
+    if (n > 100_000) return 'Value seems unrealistically high'
+    return null
+  }
+
+  function validateAmount(v) {
+    const n = Number(v)
+    if (v === '' || v === null || v === undefined) return 'Amount is required'
+    if (isNaN(n)) return 'Amount must be a number'
+    if (n <= 0)   return 'Amount must be greater than 0'
+    if (n > 1_000_000) return 'Amount exceeds maximum allowed'
+    return null
+  }
+
+  const signalFormValid = !validatePrice(price) && !validateVolume(volumeChange)
   const [livePrice,      setLivePrice]      = useState(null)
   const [liveRsi,        setLiveRsi]        = useState(null)
   const [liveVolume,     setLiveVolume]     = useState(null)
@@ -146,6 +180,11 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
 
   // ── Generate signal ─────────────────────────────────────────────────────────
   async function generateSignal() {
+    const pe = validatePrice(price)
+    const ve = validateVolume(volumeChange)
+    setPriceError(pe)
+    setVolumeError(ve)
+    if (pe || ve) return
     setLoadingSignal(true)
     setSignalError(null)
     setSignal(null)
@@ -377,14 +416,17 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
             <input
               type="number"
               value={price}
-              onChange={(e) => { setPrice(e.target.value); setLivePrice(null) }}
-              className={`w-full bg-slate-900 border ${accentBorder} rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
-                midnightEnabled ? 'focus:ring-violet-600' : 'focus:ring-red-600'
+              onChange={(e) => { setPrice(e.target.value); setLivePrice(null); setPriceError(validatePrice(e.target.value)) }}
+              className={`w-full bg-slate-900 border rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
+                priceError
+                  ? 'border-red-600 focus:ring-red-600'
+                  : midnightEnabled ? `${accentBorder} focus:ring-violet-600` : `${accentBorder} focus:ring-red-600`
               }`}
             />
+            {priceError && <p className="text-red-400 text-xs mt-1">{priceError}</p>}
           </div>
 
-          {/* RSI */}
+          {/* RSI */
           <div>
             <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-2">
               RSI: <span className={`font-mono font-bold ${midnightEnabled ? 'text-violet-300' : 'text-red-300'}`}>{rsi}</span>
@@ -433,17 +475,20 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
             <input
               type="number"
               value={volumeChange}
-              onChange={(e) => { setVolumeChange(e.target.value); setLiveVolume(null) }}
+              onChange={(e) => { setVolumeChange(e.target.value); setLiveVolume(null); setVolumeError(validateVolume(e.target.value)) }}
               step="0.1"
-              className={`w-full bg-slate-900 border ${accentBorder} rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
-                midnightEnabled ? 'focus:ring-violet-600' : 'focus:ring-red-600'
+              className={`w-full bg-slate-900 border rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
+                volumeError
+                  ? 'border-red-600 focus:ring-red-600'
+                  : midnightEnabled ? `${accentBorder} focus:ring-violet-600` : `${accentBorder} focus:ring-red-600`
               }`}
             />
+            {volumeError && <p className="text-red-400 text-xs mt-1">{volumeError}</p>}
           </div>
 
           <button
             onClick={generateSignal}
-            disabled={loadingSignal}
+            disabled={loadingSignal || !signalFormValid}
             className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${accentBtn} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
           >
             {loadingSignal ? (
@@ -583,11 +628,14 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
             <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 block">Amount ({asset})</label>
             <input
               type="number" value={amount} min="0.001" step="0.001"
-              onChange={(e) => setAmount(e.target.value)}
-              className={`w-full bg-slate-900 border ${accentBorder} rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
-                midnightEnabled ? 'focus:ring-violet-600' : 'focus:ring-red-600'
+              onChange={(e) => { setAmount(e.target.value); setAmountError(validateAmount(e.target.value)) }}
+              className={`w-full bg-slate-900 border rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 ${
+                amountError
+                  ? 'border-red-600 focus:ring-red-600'
+                  : midnightEnabled ? `${accentBorder} focus:ring-violet-600` : `${accentBorder} focus:ring-red-600`
               }`}
             />
+            {amountError && <p className="text-red-400 text-xs mt-1">{amountError}</p>}
           </div>
 
           {/* Total */}
@@ -621,8 +669,12 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
           )}
 
           <button
-            onClick={executeTrade}
-            disabled={!signal || loadingTrade}
+            onClick={() => {
+              const ae = validateAmount(amount)
+              setAmountError(ae)
+              if (!ae) executeTrade()
+            }}
+            disabled={!signal || loadingTrade || !!validateAmount(amount)}
             className={`w-full py-3 rounded-lg font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${accentBtn}`}
           >
             {loadingTrade ? (
