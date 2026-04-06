@@ -1,28 +1,29 @@
 // ─── Midnight Network configuration ──────────────────────────────────────────
-// Switch MIDNIGHT_ENV to 'local' when running midnight-local-dev Docker stack,
-// or 'testnet' when targeting the public testnet.
+// Set VITE_MIDNIGHT_ENV in frontend/.env to 'preview' (default) or 'preprod'.
+// The proof server runs locally via Docker — see midnight-local-dev/standalone.yml.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const MIDNIGHT_ENV = import.meta.env.VITE_MIDNIGHT_ENV ?? 'local'
+export const MIDNIGHT_ENV = import.meta.env.VITE_MIDNIGHT_ENV ?? 'preview'
 
 export const NETWORK_CONFIGS = {
-  local: {
-    networkId: 'undeployed',
-    indexer:    'http://127.0.0.1:8088/api/v3/graphql',
-    indexerWS:  'ws://127.0.0.1:8088/api/v3/graphql/ws',
-    node:       'http://127.0.0.1:9944',
-    proofServer:'http://localhost:6300',
+  preview: {
+    networkId:  'preview',
+    indexer:    'https://indexer.preview.midnight.network/api/v3/graphql',
+    indexerWS:  'wss://indexer.preview.midnight.network/api/v3/graphql/ws',
+    node:       'wss://rpc.preview.midnight.network',
+    proofServer: 'http://localhost:6300',   // always local — privacy requirement
+    faucet:     'https://faucet.preview.midnight.network/',
+    explorer:   'https://explorer.preview.midnight.network',
   },
-  testnet: {
-    networkId: 'testnet-02',
-    indexer:   'https://indexer.testnet-02.midnight.network/api/v3/graphql',
-    indexerWS: 'wss://indexer.testnet-02.midnight.network/api/v3/graphql/ws',
-    node:      'wss://rpc.testnet-02.midnight.network',
-    proofServer:'http://localhost:6300',   // always local — privacy requirement
+  preprod: {
+    networkId:  'preprod',
+    indexer:    'https://indexer.preprod.midnight.network/api/v3/graphql',
+    indexerWS:  'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
+    node:       'wss://rpc.preprod.midnight.network',
+    proofServer: 'http://localhost:6300',   // always local — privacy requirement
+    faucet:     'https://faucet.preprod.midnight.network/',
+    explorer:   null,
   },
 }
 
 export const config = NETWORK_CONFIGS[MIDNIGHT_ENV]
-
-// Minimum AI signal confidence required before a trade can be ZK-proven
-export const MIN_CONFIDENCE_THRESHOLD = 70

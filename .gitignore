@@ -28,10 +28,13 @@ frontend/dist/
 !.env.example
 *.example.json
 
-# Runtime data
-backend/trades.json
-.logs/
-*.pid
+# Runtime data (encrypted SQLite order store)
+backend/orders.db
+backend/orders.json
+backend/orders.json.bak
+
+# Python virtual environment
+backend/.venv/
 
 # Logs
 logs/

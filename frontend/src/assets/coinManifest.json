@@ -1,0 +1,1496 @@
+{
+  "BTC": {
+    "id": "bitcoin",
+    "name": "Bitcoin",
+    "mockPrice": 69620,
+    "localIcon": "/coins/bitcoin.png"
+  },
+  "ETH": {
+    "id": "ethereum",
+    "name": "Ethereum",
+    "mockPrice": 2150.02,
+    "localIcon": "/coins/ethereum.png"
+  },
+  "USDT": {
+    "id": "tether",
+    "name": "Tether",
+    "mockPrice": 0.999902,
+    "localIcon": "/coins/tether.png"
+  },
+  "XRP": {
+    "id": "ripple",
+    "name": "XRP",
+    "mockPrice": 1.35,
+    "localIcon": "/coins/ripple.png"
+  },
+  "BNB": {
+    "id": "binancecoin",
+    "name": "BNB",
+    "mockPrice": 605.68,
+    "localIcon": "/coins/binancecoin.png"
+  },
+  "USDC": {
+    "id": "usd-coin",
+    "name": "USDC",
+    "mockPrice": 0.99972,
+    "localIcon": "/coins/usd-coin.png"
+  },
+  "SOL": {
+    "id": "solana",
+    "name": "Solana",
+    "mockPrice": 82.49,
+    "localIcon": "/coins/solana.png"
+  },
+  "TRX": {
+    "id": "tron",
+    "name": "TRON",
+    "mockPrice": 0.317843,
+    "localIcon": "/coins/tron.png"
+  },
+  "FIGR_HELOC": {
+    "id": "figure-heloc",
+    "name": "Figure Heloc",
+    "mockPrice": 1.03,
+    "localIcon": "/coins/figure-heloc.png"
+  },
+  "DOGE": {
+    "id": "dogecoin",
+    "name": "Dogecoin",
+    "mockPrice": 0.09292,
+    "localIcon": "/coins/dogecoin.png"
+  },
+  "USDS": {
+    "id": "usds",
+    "name": "USDS",
+    "mockPrice": 0.999801,
+    "localIcon": "/coins/usds.png"
+  },
+  "WBT": {
+    "id": "whitebit",
+    "name": "WhiteBIT Coin",
+    "mockPrice": 52.62,
+    "localIcon": "/coins/whitebit.png"
+  },
+  "ADA": {
+    "id": "cardano",
+    "name": "Cardano",
+    "mockPrice": 0.256096,
+    "localIcon": "/coins/cardano.png"
+  },
+  "LEO": {
+    "id": "leo-token",
+    "name": "LEO Token",
+    "mockPrice": 10.11,
+    "localIcon": "/coins/leo-token.png"
+  },
+  "HYPE": {
+    "id": "hyperliquid",
+    "name": "Hyperliquid",
+    "mockPrice": 37.28,
+    "localIcon": "/coins/hyperliquid.png"
+  },
+  "BCH": {
+    "id": "bitcoin-cash",
+    "name": "Bitcoin Cash",
+    "mockPrice": 437.96,
+    "localIcon": "/coins/bitcoin-cash.png"
+  },
+  "LINK": {
+    "id": "chainlink",
+    "name": "Chainlink",
+    "mockPrice": 9.04,
+    "localIcon": "/coins/chainlink.png"
+  },
+  "XMR": {
+    "id": "monero",
+    "name": "Monero",
+    "mockPrice": 331.29,
+    "localIcon": "/coins/monero.png"
+  },
+  "USDE": {
+    "id": "ethena-usde",
+    "name": "Ethena USDe",
+    "mockPrice": 0.99983,
+    "localIcon": "/coins/ethena-usde.png"
+  },
+  "XLM": {
+    "id": "stellar",
+    "name": "Stellar",
+    "mockPrice": 0.162828,
+    "localIcon": "/coins/stellar.png"
+  },
+  "CC": {
+    "id": "canton-network",
+    "name": "Canton",
+    "mockPrice": 0.139432,
+    "localIcon": "/coins/canton-network.png"
+  },
+  "M": {
+    "id": "memecore",
+    "name": "MemeCore",
+    "mockPrice": 2.71,
+    "localIcon": "/coins/memecore.png"
+  },
+  "DAI": {
+    "id": "dai",
+    "name": "Dai",
+    "mockPrice": 1.001,
+    "localIcon": "/coins/dai.png"
+  },
+  "USD1": {
+    "id": "usd1-wlfi",
+    "name": "USD1",
+    "mockPrice": 0.999875,
+    "localIcon": "/coins/usd1-wlfi.png"
+  },
+  "ZEC": {
+    "id": "zcash",
+    "name": "Zcash",
+    "mockPrice": 255.14,
+    "localIcon": "/coins/zcash.png"
+  },
+  "LTC": {
+    "id": "litecoin",
+    "name": "Litecoin",
+    "mockPrice": 54.27,
+    "localIcon": "/coins/litecoin.png"
+  },
+  "AVAX": {
+    "id": "avalanche-2",
+    "name": "Avalanche",
+    "mockPrice": 9.46,
+    "localIcon": "/coins/avalanche-2.png"
+  },
+  "PYUSD": {
+    "id": "paypal-usd",
+    "name": "PayPal USD",
+    "mockPrice": 0.999812,
+    "localIcon": "/coins/paypal-usd.png"
+  },
+  "HBAR": {
+    "id": "hedera-hashgraph",
+    "name": "Hedera",
+    "mockPrice": 0.089525,
+    "localIcon": "/coins/hedera-hashgraph.png"
+  },
+  "SUI": {
+    "id": "sui",
+    "name": "Sui",
+    "mockPrice": 0.904899,
+    "localIcon": "/coins/sui.png"
+  },
+  "SHIB": {
+    "id": "shiba-inu",
+    "name": "Shiba Inu",
+    "mockPrice": 0.00000604,
+    "localIcon": "/coins/shiba-inu.png"
+  },
+  "RAIN": {
+    "id": "rain",
+    "name": "Rain",
+    "mockPrice": 0.00657857,
+    "localIcon": "/coins/rain.png"
+  },
+  "TON": {
+    "id": "the-open-network",
+    "name": "Toncoin",
+    "mockPrice": 1.26,
+    "localIcon": "/coins/the-open-network.png"
+  },
+  "TAO": {
+    "id": "bittensor",
+    "name": "Bittensor",
+    "mockPrice": 323.58,
+    "localIcon": "/coins/bittensor.png"
+  },
+  "WLFI": {
+    "id": "world-liberty-financial",
+    "name": "World Liberty Financial",
+    "mockPrice": 0.100142,
+    "localIcon": "/coins/world-liberty-financial.png"
+  },
+  "CRO": {
+    "id": "crypto-com-chain",
+    "name": "Cronos",
+    "mockPrice": 0.070604,
+    "localIcon": "/coins/crypto-com-chain.png"
+  },
+  "USYC": {
+    "id": "hashnote-usyc",
+    "name": "Circle USYC",
+    "mockPrice": 1.12,
+    "localIcon": "/coins/hashnote-usyc.png"
+  },
+  "XAUT": {
+    "id": "tether-gold",
+    "name": "Tether Gold",
+    "mockPrice": 4655.94,
+    "localIcon": "/coins/tether-gold.png"
+  },
+  "PAXG": {
+    "id": "pax-gold",
+    "name": "PAX Gold",
+    "mockPrice": 4674.45,
+    "localIcon": "/coins/pax-gold.png"
+  },
+  "BUIDL": {
+    "id": "blackrock-usd-institutional-digital-liquidity-fund",
+    "name": "BlackRock USD Institutional Digital Liquidity Fund",
+    "mockPrice": 1,
+    "localIcon": "/coins/blackrock-usd-institutional-digital-liquidity-fund.png"
+  },
+  "MNT": {
+    "id": "mantle",
+    "name": "Mantle",
+    "mockPrice": 0.675037,
+    "localIcon": "/coins/mantle.png"
+  },
+  "DOT": {
+    "id": "polkadot",
+    "name": "Polkadot",
+    "mockPrice": 1.3,
+    "localIcon": "/coins/polkadot.png"
+  },
+  "UNI": {
+    "id": "uniswap",
+    "name": "Uniswap",
+    "mockPrice": 3.2,
+    "localIcon": "/coins/uniswap.png"
+  },
+  "USDG": {
+    "id": "global-dollar",
+    "name": "Global Dollar",
+    "mockPrice": 0.999979,
+    "localIcon": "/coins/global-dollar.png"
+  },
+  "OKB": {
+    "id": "okb",
+    "name": "OKB",
+    "mockPrice": 83.37,
+    "localIcon": "/coins/okb.png"
+  },
+  "SKY": {
+    "id": "sky",
+    "name": "Sky",
+    "mockPrice": 0.075695,
+    "localIcon": "/coins/sky.png"
+  },
+  "USDF": {
+    "id": "falcon-finance",
+    "name": "Falcon USD",
+    "mockPrice": 0.997195,
+    "localIcon": "/coins/falcon-finance.png"
+  },
+  "PI": {
+    "id": "pi-network",
+    "name": "Pi Network",
+    "mockPrice": 0.171471,
+    "localIcon": "/coins/pi-network.png"
+  },
+  "NEAR": {
+    "id": "near",
+    "name": "NEAR Protocol",
+    "mockPrice": 1.3,
+    "localIcon": "/coins/near.png"
+  },
+  "ASTER": {
+    "id": "aster-2",
+    "name": "Aster",
+    "mockPrice": 0.669439,
+    "localIcon": "/coins/aster-2.png"
+  },
+  "HTX": {
+    "id": "htx-dao",
+    "name": "HTX DAO",
+    "mockPrice": 0.00000174,
+    "localIcon": "/coins/htx-dao.png"
+  },
+  "USDD": {
+    "id": "usdd",
+    "name": "USDD",
+    "mockPrice": 1,
+    "localIcon": "/coins/usdd.png"
+  },
+  "PEPE": {
+    "id": "pepe",
+    "name": "Pepe",
+    "mockPrice": 0.00000352,
+    "localIcon": "/coins/pepe.png"
+  },
+  "AAVE": {
+    "id": "aave",
+    "name": "Aave",
+    "mockPrice": 97.25,
+    "localIcon": "/coins/aave.png"
+  },
+  "RLUSD": {
+    "id": "ripple-usd",
+    "name": "Ripple USD",
+    "mockPrice": 1,
+    "localIcon": "/coins/ripple-usd.png"
+  },
+  "ETC": {
+    "id": "ethereum-classic",
+    "name": "Ethereum Classic",
+    "mockPrice": 8.71,
+    "localIcon": "/coins/ethereum-classic.png"
+  },
+  "BFUSD": {
+    "id": "bfusd",
+    "name": "BFUSD",
+    "mockPrice": 0.9996,
+    "localIcon": "/coins/bfusd.png"
+  },
+  "BGB": {
+    "id": "bitget-token",
+    "name": "Bitget Token",
+    "mockPrice": 1.88,
+    "localIcon": "/coins/bitget-token.png"
+  },
+  "USDY": {
+    "id": "ondo-us-dollar-yield",
+    "name": "Ondo US Dollar Yield",
+    "mockPrice": 1.13,
+    "localIcon": "/coins/ondo-us-dollar-yield.png"
+  },
+  "ICP": {
+    "id": "internet-computer",
+    "name": "Internet Computer",
+    "mockPrice": 2.37,
+    "localIcon": "/coins/internet-computer.png"
+  },
+  "ONDO": {
+    "id": "ondo-finance",
+    "name": "Ondo",
+    "mockPrice": 0.267406,
+    "localIcon": "/coins/ondo-finance.png"
+  },
+  "JTRSY": {
+    "id": "janus-henderson-anemoy-treasury-fund",
+    "name": "Janus Henderson Anemoy Treasury Fund",
+    "mockPrice": 1.099,
+    "localIcon": "/coins/janus-henderson-anemoy-treasury-fund.png"
+  },
+  "GT": {
+    "id": "gatechain-token",
+    "name": "Gate",
+    "mockPrice": 6.53,
+    "localIcon": "/coins/gatechain-token.png"
+  },
+  "ALGO": {
+    "id": "algorand",
+    "name": "Algorand",
+    "mockPrice": 0.124902,
+    "localIcon": "/coins/algorand.png"
+  },
+  "KCS": {
+    "id": "kucoin-shares",
+    "name": "KuCoin",
+    "mockPrice": 8.21,
+    "localIcon": "/coins/kucoin-shares.png"
+  },
+  "QNT": {
+    "id": "quant-network",
+    "name": "Quant",
+    "mockPrice": 75.08,
+    "localIcon": "/coins/quant-network.png"
+  },
+  "PUMP": {
+    "id": "pump-fun",
+    "name": "Pump.fun",
+    "mockPrice": 0.00174121,
+    "localIcon": "/coins/pump-fun.png"
+  },
+  "RENDER": {
+    "id": "render-token",
+    "name": "Render",
+    "mockPrice": 1.97,
+    "localIcon": "/coins/render-token.png"
+  },
+  "USTB": {
+    "id": "superstate-short-duration-us-government-securities-fund-ustb",
+    "name": "Superstate Short Duration U.S. Government Securities Fund (USTB)",
+    "mockPrice": 11.04,
+    "localIcon": "/coins/superstate-short-duration-us-government-securities-fund-ustb.png"
+  },
+  "POL": {
+    "id": "polygon-ecosystem-token",
+    "name": "POL (ex-MATIC)",
+    "mockPrice": 0.093536,
+    "localIcon": "/coins/polygon-ecosystem-token.png"
+  },
+  "EUTBL": {
+    "id": "eutbl",
+    "name": "Spiko EU T-Bills Money Market Fund",
+    "mockPrice": 1.21,
+    "localIcon": "/coins/eutbl.png"
+  },
+  "ATOM": {
+    "id": "cosmos",
+    "name": "Cosmos Hub",
+    "mockPrice": 1.75,
+    "localIcon": "/coins/cosmos.png"
+  },
+  "USDTB": {
+    "id": "usdtb",
+    "name": "USDtb",
+    "mockPrice": 1.001,
+    "localIcon": "/coins/usdtb.png"
+  },
+  "KAS": {
+    "id": "kaspa",
+    "name": "Kaspa",
+    "mockPrice": 0.03146774,
+    "localIcon": "/coins/kaspa.png"
+  },
+  "NEXO": {
+    "id": "nexo",
+    "name": "NEXO",
+    "mockPrice": 0.858985,
+    "localIcon": "/coins/nexo.png"
+  },
+  "MORPHO": {
+    "id": "morpho",
+    "name": "Morpho",
+    "mockPrice": 1.54,
+    "localIcon": "/coins/morpho.png"
+  },
+  "WLD": {
+    "id": "worldcoin-wld",
+    "name": "Worldcoin",
+    "mockPrice": 0.254517,
+    "localIcon": "/coins/worldcoin-wld.png"
+  },
+  "ENA": {
+    "id": "ethena",
+    "name": "Ethena",
+    "mockPrice": 0.083274,
+    "localIcon": "/coins/ethena.png"
+  },
+  "NIGHT": {
+    "id": "midnight-3",
+    "name": "Midnight",
+    "mockPrice": 0.04216274,
+    "localIcon": "/coins/midnight-3.png"
+  },
+  "APT": {
+    "id": "aptos",
+    "name": "Aptos",
+    "mockPrice": 0.877597,
+    "localIcon": "/coins/aptos.png"
+  },
+  "FIL": {
+    "id": "filecoin",
+    "name": "Filecoin",
+    "mockPrice": 0.891473,
+    "localIcon": "/coins/filecoin.png"
+  },
+  "TRUMP": {
+    "id": "official-trump",
+    "name": "Official Trump",
+    "mockPrice": 2.91,
+    "localIcon": "/coins/official-trump.png"
+  },
+  "OUSG": {
+    "id": "ousg",
+    "name": "OUSG",
+    "mockPrice": 114.79,
+    "localIcon": "/coins/ousg.png"
+  },
+  "VET": {
+    "id": "vechain",
+    "name": "VeChain",
+    "mockPrice": 0.00749832,
+    "localIcon": "/coins/vechain.png"
+  },
+  "FLR": {
+    "id": "flare-networks",
+    "name": "Flare",
+    "mockPrice": 0.00752015,
+    "localIcon": "/coins/flare-networks.png"
+  },
+  "XDC": {
+    "id": "xdce-crowd-sale",
+    "name": "XDC Network",
+    "mockPrice": 0.03168071,
+    "localIcon": "/coins/xdce-crowd-sale.png"
+  },
+  "HASH": {
+    "id": "hash-2",
+    "name": "Provenance Blockchain",
+    "mockPrice": 0.01115163,
+    "localIcon": "/coins/hash-2.png"
+  },
+  "YLDS": {
+    "id": "ylds",
+    "name": "YLDS",
+    "mockPrice": 0.999857,
+    "localIcon": "/coins/ylds.png"
+  },
+  "BDX": {
+    "id": "beldex",
+    "name": "Beldex",
+    "mockPrice": 0.080164,
+    "localIcon": "/coins/beldex.png"
+  },
+  "ARB": {
+    "id": "arbitrum",
+    "name": "Arbitrum",
+    "mockPrice": 0.098396,
+    "localIcon": "/coins/arbitrum.png"
+  },
+  "JUP": {
+    "id": "jupiter-exchange-solana",
+    "name": "Jupiter",
+    "mockPrice": 0.165914,
+    "localIcon": "/coins/jupiter-exchange-solana.png"
+  },
+  "GHO": {
+    "id": "gho",
+    "name": "GHO",
+    "mockPrice": 0.999701,
+    "localIcon": "/coins/gho.png"
+  },
+  "STABLE": {
+    "id": "stable-2",
+    "name": "​​Stable",
+    "mockPrice": 0.02680396,
+    "localIcon": "/coins/stable-2.png"
+  },
+  "JST": {
+    "id": "just",
+    "name": "JUST",
+    "mockPrice": 0.064004,
+    "localIcon": "/coins/just.png"
+  },
+  "USD0": {
+    "id": "usual-usd",
+    "name": "Usual USD",
+    "mockPrice": 0.999293,
+    "localIcon": "/coins/usual-usd.png"
+  },
+  "FET": {
+    "id": "fetch-ai",
+    "name": "Artificial Superintelligence Alliance",
+    "mockPrice": 0.239453,
+    "localIcon": "/coins/fetch-ai.png"
+  },
+  "BONK": {
+    "id": "bonk",
+    "name": "Bonk",
+    "mockPrice": 0.00000587,
+    "localIcon": "/coins/bonk.png"
+  },
+  "TUSD": {
+    "id": "true-usd",
+    "name": "TrueUSD",
+    "mockPrice": 0.999272,
+    "localIcon": "/coins/true-usd.png"
+  },
+  "A7A5": {
+    "id": "a7a5",
+    "name": "A7A5",
+    "mockPrice": 0.01242302,
+    "localIcon": "/coins/a7a5.png"
+  },
+  "ZRO": {
+    "id": "layerzero",
+    "name": "LayerZero",
+    "mockPrice": 1.92,
+    "localIcon": "/coins/layerzero.png"
+  },
+  "CAKE": {
+    "id": "pancakeswap-token",
+    "name": "PancakeSwap",
+    "mockPrice": 1.44,
+    "localIcon": "/coins/pancakeswap-token.png"
+  },
+  "VIRTUAL": {
+    "id": "virtual-protocol",
+    "name": "Virtuals Protocol",
+    "mockPrice": 0.658229,
+    "localIcon": "/coins/virtual-protocol.png"
+  },
+  "SIREN": {
+    "id": "siren-2",
+    "name": "Siren",
+    "mockPrice": 0.580948,
+    "localIcon": "/coins/siren-2.png"
+  },
+  "EURC": {
+    "id": "euro-coin",
+    "name": "EURC",
+    "mockPrice": 1.15,
+    "localIcon": "/coins/euro-coin.png"
+  },
+  "STX": {
+    "id": "blockstack",
+    "name": "Stacks",
+    "mockPrice": 0.224849,
+    "localIcon": "/coins/blockstack.png"
+  },
+  "PENGU": {
+    "id": "pudgy-penguins",
+    "name": "Pudgy Penguins",
+    "mockPrice": 0.00657774,
+    "localIcon": "/coins/pudgy-penguins.png"
+  },
+  "CHZ": {
+    "id": "chiliz",
+    "name": "Chiliz",
+    "mockPrice": 0.03910823,
+    "localIcon": "/coins/chiliz.png"
+  },
+  "DEXE": {
+    "id": "dexe",
+    "name": "DeXe",
+    "mockPrice": 8.54,
+    "localIcon": "/coins/dexe.png"
+  },
+  "JAAA": {
+    "id": "janus-henderson-anemoy-aaa-clo-fund",
+    "name": "Janus Henderson Anemoy AAA CLO Fund",
+    "mockPrice": 1.029,
+    "localIcon": "/coins/janus-henderson-anemoy-aaa-clo-fund.png"
+  },
+  "FDUSD": {
+    "id": "first-digital-usd",
+    "name": "First Digital USD",
+    "mockPrice": 1,
+    "localIcon": "/coins/first-digital-usd.png"
+  },
+  "DASH": {
+    "id": "dash",
+    "name": "Dash",
+    "mockPrice": 31.06,
+    "localIcon": "/coins/dash.png"
+  },
+  "XTZ": {
+    "id": "tezos",
+    "name": "Tezos",
+    "mockPrice": 0.35419,
+    "localIcon": "/coins/tezos.png"
+  },
+  "SEI": {
+    "id": "sei-network",
+    "name": "Sei",
+    "mockPrice": 0.054794,
+    "localIcon": "/coins/sei-network.png"
+  },
+  "PRIME": {
+    "id": "hastra-prime",
+    "name": "PRIME",
+    "mockPrice": 1.027,
+    "localIcon": "/coins/hastra-prime.png"
+  },
+  "KAU": {
+    "id": "kinesis-gold",
+    "name": "Kinesis Gold",
+    "mockPrice": 149.69,
+    "localIcon": "/coins/kinesis-gold.png"
+  },
+  "DCR": {
+    "id": "decred",
+    "name": "Decred",
+    "mockPrice": 20.56,
+    "localIcon": "/coins/decred.png"
+  },
+  "ADI": {
+    "id": "adi-token",
+    "name": "ADI",
+    "mockPrice": 4.47,
+    "localIcon": "/coins/adi-token.png"
+  },
+  "USX": {
+    "id": "usx",
+    "name": "USX",
+    "mockPrice": 0.999651,
+    "localIcon": "/coins/usx.png"
+  },
+  "ETHFI": {
+    "id": "ether-fi",
+    "name": "Ether.fi",
+    "mockPrice": 0.452231,
+    "localIcon": "/coins/ether-fi.png"
+  },
+  "SUN": {
+    "id": "sun-token",
+    "name": "Sun Token",
+    "mockPrice": 0.01736199,
+    "localIcon": "/coins/sun-token.png"
+  },
+  "CRV": {
+    "id": "curve-dao-token",
+    "name": "Curve DAO",
+    "mockPrice": 0.218347,
+    "localIcon": "/coins/curve-dao-token.png"
+  },
+  "OM": {
+    "id": "mantra-dao",
+    "name": "MANTRA [Old]",
+    "mockPrice": 0.06733,
+    "localIcon": "/coins/mantra-dao.png"
+  },
+  "GNO": {
+    "id": "gnosis",
+    "name": "Gnosis",
+    "mockPrice": 123.52,
+    "localIcon": "/coins/gnosis.png"
+  },
+  "EDGE": {
+    "id": "edgex",
+    "name": "edgeX",
+    "mockPrice": 0.929016,
+    "localIcon": "/coins/edgex.png"
+  },
+  "NFT": {
+    "id": "apenft",
+    "name": "AINFT",
+    "mockPrice": 3.28556e-7,
+    "localIcon": "/coins/apenft.png"
+  },
+  "VVV": {
+    "id": "venice-token",
+    "name": "Venice Token",
+    "mockPrice": 7.08,
+    "localIcon": "/coins/venice-token.png"
+  },
+  "BSV": {
+    "id": "bitcoin-cash-sv",
+    "name": "Bitcoin SV",
+    "mockPrice": 15.96,
+    "localIcon": "/coins/bitcoin-cash-sv.png"
+  },
+  "MON": {
+    "id": "monad",
+    "name": "Monad",
+    "mockPrice": 0.02915207,
+    "localIcon": "/coins/monad.png"
+  },
+  "BTT": {
+    "id": "bittorrent",
+    "name": "BitTorrent",
+    "mockPrice": 3.16076e-7,
+    "localIcon": "/coins/bittorrent.png"
+  },
+  "AERO": {
+    "id": "aerodrome-finance",
+    "name": "Aerodrome Finance",
+    "mockPrice": 0.320113,
+    "localIcon": "/coins/aerodrome-finance.png"
+  },
+  "XPL": {
+    "id": "plasma",
+    "name": "Plasma",
+    "mockPrice": 0.123946,
+    "localIcon": "/coins/plasma.png"
+  },
+  "INJ": {
+    "id": "injective-protocol",
+    "name": "Injective",
+    "mockPrice": 2.93,
+    "localIcon": "/coins/injective-protocol.png"
+  },
+  "2Z": {
+    "id": "doublezero",
+    "name": "DoubleZero",
+    "mockPrice": 0.082827,
+    "localIcon": "/coins/doublezero.png"
+  },
+  "KAIA": {
+    "id": "kaia",
+    "name": "Kaia",
+    "mockPrice": 0.04793576,
+    "localIcon": "/coins/kaia.png"
+  },
+  "LDO": {
+    "id": "lido-dao",
+    "name": "Lido DAO",
+    "mockPrice": 0.325762,
+    "localIcon": "/coins/lido-dao.png"
+  },
+  "KAG": {
+    "id": "kinesis-silver",
+    "name": "Kinesis Silver",
+    "mockPrice": 73.04,
+    "localIcon": "/coins/kinesis-silver.png"
+  },
+  "FRAX": {
+    "id": "frax",
+    "name": "Legacy Frax Dollar",
+    "mockPrice": 0.994336,
+    "localIcon": "/coins/frax.png"
+  },
+  "CFX": {
+    "id": "conflux-token",
+    "name": "Conflux",
+    "mockPrice": 0.052824,
+    "localIcon": "/coins/conflux-token.png"
+  },
+  "SPX": {
+    "id": "spx6900",
+    "name": "SPX6900",
+    "mockPrice": 0.293072,
+    "localIcon": "/coins/spx6900.png"
+  },
+  "USDAI": {
+    "id": "usdai",
+    "name": "USDai",
+    "mockPrice": 0.999817,
+    "localIcon": "/coins/usdai.png"
+  },
+  "FLOKI": {
+    "id": "floki",
+    "name": "FLOKI",
+    "mockPrice": 0.00002784,
+    "localIcon": "/coins/floki.png"
+  },
+  "TIA": {
+    "id": "celestia",
+    "name": "Celestia",
+    "mockPrice": 0.298178,
+    "localIcon": "/coins/celestia.png"
+  },
+  "FO": {
+    "id": "official-fo",
+    "name": "Official FO",
+    "mockPrice": 0.268558,
+    "localIcon": "/coins/official-fo.png"
+  },
+  "JASMY": {
+    "id": "jasmycoin",
+    "name": "JasmyCoin",
+    "mockPrice": 0.00538995,
+    "localIcon": "/coins/jasmycoin.png"
+  },
+  "ZBCN": {
+    "id": "zebec-network",
+    "name": "Zebec Network",
+    "mockPrice": 0.00271367,
+    "localIcon": "/coins/zebec-network.png"
+  },
+  "GRT": {
+    "id": "the-graph",
+    "name": "The Graph",
+    "mockPrice": 0.02463128,
+    "localIcon": "/coins/the-graph.png"
+  },
+  "CRVUSD": {
+    "id": "crvusd",
+    "name": "crvUSD",
+    "mockPrice": 0.99479,
+    "localIcon": "/coins/crvusd.png"
+  },
+  "LIT": {
+    "id": "lighter",
+    "name": "Lighter",
+    "mockPrice": 1.044,
+    "localIcon": "/coins/lighter.png"
+  },
+  "KITE": {
+    "id": "kite-2",
+    "name": "Kite",
+    "mockPrice": 0.144757,
+    "localIcon": "/coins/kite-2.png"
+  },
+  "IOTA": {
+    "id": "iota",
+    "name": "IOTA",
+    "mockPrice": 0.059341,
+    "localIcon": "/coins/iota.png"
+  },
+  "OHM": {
+    "id": "olympus",
+    "name": "Olympus",
+    "mockPrice": 15.82,
+    "localIcon": "/coins/olympus.png"
+  },
+  "APEPE": {
+    "id": "ape-and-pepe",
+    "name": "Ape and Pepe",
+    "mockPrice": 0.00000119,
+    "localIcon": "/coins/ape-and-pepe.png"
+  },
+  "SYRUP": {
+    "id": "syrup",
+    "name": "Maple Finance",
+    "mockPrice": 0.2158,
+    "localIcon": "/coins/syrup.png"
+  },
+  "OP": {
+    "id": "optimism",
+    "name": "Optimism",
+    "mockPrice": 0.114565,
+    "localIcon": "/coins/optimism.png"
+  },
+  "PYTH": {
+    "id": "pyth-network",
+    "name": "Pyth Network",
+    "mockPrice": 0.0405559,
+    "localIcon": "/coins/pyth-network.png"
+  },
+  "RIVER": {
+    "id": "river",
+    "name": "River",
+    "mockPrice": 11.53,
+    "localIcon": "/coins/river.png"
+  },
+  "BTSE": {
+    "id": "btse-token",
+    "name": "BTSE Token",
+    "mockPrice": 1.38,
+    "localIcon": "/coins/btse-token.png"
+  },
+  "ENS": {
+    "id": "ethereum-name-service",
+    "name": "Ethereum Name Service",
+    "mockPrice": 5.83,
+    "localIcon": "/coins/ethereum-name-service.png"
+  },
+  "VSN": {
+    "id": "vision-3",
+    "name": "Vision",
+    "mockPrice": 0.060615,
+    "localIcon": "/coins/vision-3.png"
+  },
+  "USDA": {
+    "id": "usda-2",
+    "name": "USDa",
+    "mockPrice": 0.984492,
+    "localIcon": "/coins/usda-2.png"
+  },
+  "AUSD": {
+    "id": "agora-dollar",
+    "name": "AUSD",
+    "mockPrice": 0.999859,
+    "localIcon": "/coins/agora-dollar.png"
+  },
+  "TEL": {
+    "id": "telcoin",
+    "name": "Telcoin",
+    "mockPrice": 0.00223742,
+    "localIcon": "/coins/telcoin.png"
+  },
+  "SAND": {
+    "id": "the-sandbox",
+    "name": "The Sandbox",
+    "mockPrice": 0.079259,
+    "localIcon": "/coins/the-sandbox.png"
+  },
+  "BCAP": {
+    "id": "blockchain-capital",
+    "name": "Blockchain Capital",
+    "mockPrice": 23.01,
+    "localIcon": "/coins/blockchain-capital.png"
+  },
+  "9BIT": {
+    "id": "the9bit",
+    "name": "The9bit",
+    "mockPrice": 0.02489421,
+    "localIcon": "/coins/the9bit.png"
+  },
+  "LUNC": {
+    "id": "terra-luna",
+    "name": "Terra Luna Classic",
+    "mockPrice": 0.00003692,
+    "localIcon": "/coins/terra-luna.png"
+  },
+  "REAL": {
+    "id": "reallink",
+    "name": "RealLink",
+    "mockPrice": 0.062665,
+    "localIcon": "/coins/reallink.png"
+  },
+  "NEO": {
+    "id": "neo",
+    "name": "NEO",
+    "mockPrice": 2.8,
+    "localIcon": "/coins/neo.png"
+  },
+  "UDS": {
+    "id": "undeads-games",
+    "name": "Undeads Games",
+    "mockPrice": 1.56,
+    "localIcon": "/coins/undeads-games.png"
+  },
+  "STRK": {
+    "id": "starknet",
+    "name": "Starknet",
+    "mockPrice": 0.03393692,
+    "localIcon": "/coins/starknet.png"
+  },
+  "AXS": {
+    "id": "axie-infinity",
+    "name": "Axie Infinity",
+    "mockPrice": 1.13,
+    "localIcon": "/coins/axie-infinity.png"
+  },
+  "PC0000031": {
+    "id": "tradable-na-rent-financing-platform-sstn",
+    "name": "Tradable NA Rent Financing Platform SSTN",
+    "mockPrice": 1,
+    "localIcon": "/coins/tradable-na-rent-financing-platform-sstn.png"
+  },
+  "WIF": {
+    "id": "dogwifcoin",
+    "name": "dogwifhat",
+    "mockPrice": 0.188952,
+    "localIcon": "/coins/dogwifcoin.png"
+  },
+  "REUSD": {
+    "id": "re-protocol-reusd",
+    "name": "Re Protocol reUSD",
+    "mockPrice": 1.07,
+    "localIcon": "/coins/re-protocol-reusd.png"
+  },
+  "HNT": {
+    "id": "helium",
+    "name": "Helium",
+    "mockPrice": 1.009,
+    "localIcon": "/coins/helium.png"
+  },
+  "BORG": {
+    "id": "swissborg",
+    "name": "SwissBorg",
+    "mockPrice": 0.188529,
+    "localIcon": "/coins/swissborg.png"
+  },
+  "B": {
+    "id": "build-on",
+    "name": "BUILDon",
+    "mockPrice": 0.184117,
+    "localIcon": "/coins/build-on.png"
+  },
+  "XCN": {
+    "id": "chain-2",
+    "name": "Onyxcoin",
+    "mockPrice": 0.00479999,
+    "localIcon": "/coins/chain-2.png"
+  },
+  "IP": {
+    "id": "story-2",
+    "name": "Story",
+    "mockPrice": 0.509998,
+    "localIcon": "/coins/story-2.png"
+  },
+  "PENDLE": {
+    "id": "pendle",
+    "name": "Pendle",
+    "mockPrice": 1.075,
+    "localIcon": "/coins/pendle.png"
+  },
+  "FARTCOIN": {
+    "id": "fartcoin",
+    "name": "Fartcoin",
+    "mockPrice": 0.177021,
+    "localIcon": "/coins/fartcoin.png"
+  },
+  "WFI": {
+    "id": "wefi",
+    "name": "WeFi",
+    "mockPrice": 2.12,
+    "localIcon": "/coins/wefi.png"
+  },
+  "NUSD": {
+    "id": "nusd-2",
+    "name": "Neutrl USD",
+    "mockPrice": 1.001,
+    "localIcon": "/coins/nusd-2.png"
+  },
+  "USTBL": {
+    "id": "spiko-us-t-bills-money-market-fund",
+    "name": "Spiko US T-Bills Money Market Fund",
+    "mockPrice": 1.079,
+    "localIcon": "/coins/spiko-us-t-bills-money-market-fund.png"
+  },
+  "MANA": {
+    "id": "decentraland",
+    "name": "Decentraland",
+    "mockPrice": 0.088414,
+    "localIcon": "/coins/decentraland.png"
+  },
+  "RAY": {
+    "id": "raydium",
+    "name": "Raydium",
+    "mockPrice": 0.630426,
+    "localIcon": "/coins/raydium.png"
+  },
+  "GRASS": {
+    "id": "grass",
+    "name": "Grass",
+    "mockPrice": 0.294989,
+    "localIcon": "/coins/grass.png"
+  },
+  "WAL": {
+    "id": "walrus-2",
+    "name": "Walrus",
+    "mockPrice": 0.071652,
+    "localIcon": "/coins/walrus-2.png"
+  },
+  "MX": {
+    "id": "mx-token",
+    "name": "MX",
+    "mockPrice": 1.79,
+    "localIcon": "/coins/mx-token.png"
+  },
+  "FF": {
+    "id": "falcon-finance-ff",
+    "name": "Falcon Finance",
+    "mockPrice": 0.06997,
+    "localIcon": "/coins/falcon-finance-ff.png"
+  },
+  "COMP": {
+    "id": "compound-governance-token",
+    "name": "Compound",
+    "mockPrice": 16.91,
+    "localIcon": "/coins/compound-governance-token.png"
+  },
+  "TWT": {
+    "id": "trust-wallet-token",
+    "name": "Trust Wallet",
+    "mockPrice": 0.392273,
+    "localIcon": "/coins/trust-wallet-token.png"
+  },
+  "THETA": {
+    "id": "theta-token",
+    "name": "Theta Network",
+    "mockPrice": 0.162498,
+    "localIcon": "/coins/theta-token.png"
+  },
+  "KOGE": {
+    "id": "bnb48-club-token",
+    "name": "KOGE",
+    "mockPrice": 47.99,
+    "localIcon": "/coins/bnb48-club-token.png"
+  },
+  "SATUSD": {
+    "id": "satoshi-stablecoin",
+    "name": "Satoshi Stablecoin",
+    "mockPrice": 0.994689,
+    "localIcon": "/coins/satoshi-stablecoin.png"
+  },
+  "S": {
+    "id": "sonic-3",
+    "name": "Sonic",
+    "mockPrice": 0.04200849,
+    "localIcon": "/coins/sonic-3.png"
+  },
+  "CVX": {
+    "id": "convex-finance",
+    "name": "Convex Finance",
+    "mockPrice": 1.76,
+    "localIcon": "/coins/convex-finance.png"
+  },
+  "FDIT": {
+    "id": "fidelity-digital-interest-token",
+    "name": "Fidelity Digital Interest Token",
+    "mockPrice": 1,
+    "localIcon": "/coins/fidelity-digital-interest-token.png"
+  },
+  "H": {
+    "id": "humanity",
+    "name": "Humanity",
+    "mockPrice": 0.085163,
+    "localIcon": "/coins/humanity.png"
+  },
+  "AB": {
+    "id": "newton-project",
+    "name": "AB",
+    "mockPrice": 0.00151912,
+    "localIcon": "/coins/newton-project.png"
+  },
+  "EURS": {
+    "id": "stasis-eurs",
+    "name": "STASIS EURO",
+    "mockPrice": 1.21,
+    "localIcon": "/coins/stasis-eurs.png"
+  },
+  "SFP": {
+    "id": "safepal",
+    "name": "SafePal",
+    "mockPrice": 0.299389,
+    "localIcon": "/coins/safepal.png"
+  },
+  "GUSD": {
+    "id": "gusd",
+    "name": "GUSD",
+    "mockPrice": 0.999852,
+    "localIcon": "/coins/gusd.png"
+  },
+  "BAT": {
+    "id": "basic-attention-token",
+    "name": "Basic Attention",
+    "mockPrice": 0.099435,
+    "localIcon": "/coins/basic-attention-token.png"
+  },
+  "ZANO": {
+    "id": "zano",
+    "name": "Zano",
+    "mockPrice": 9.72,
+    "localIcon": "/coins/zano.png"
+  },
+  "ZK": {
+    "id": "zksync",
+    "name": "ZKsync",
+    "mockPrice": 0.01532394,
+    "localIcon": "/coins/zksync.png"
+  },
+  "CRCLON": {
+    "id": "circle-internet-group-ondo-tokenized-stock",
+    "name": "Circle Internet Group (Ondo Tokenized Stock)",
+    "mockPrice": 93.36,
+    "localIcon": "/coins/circle-internet-group-ondo-tokenized-stock.png"
+  },
+  "GALA": {
+    "id": "gala",
+    "name": "GALA",
+    "mockPrice": 0.00297436,
+    "localIcon": "/coins/gala.png"
+  },
+  "RUNE": {
+    "id": "thorchain",
+    "name": "THORChain",
+    "mockPrice": 0.395341,
+    "localIcon": "/coins/thorchain.png"
+  },
+  "XEC": {
+    "id": "ecash",
+    "name": "eCash",
+    "mockPrice": 0.00000691,
+    "localIcon": "/coins/ecash.png"
+  },
+  "FT": {
+    "id": "flying-tulip",
+    "name": "Flying Tulip",
+    "mockPrice": 0.091591,
+    "localIcon": "/coins/flying-tulip.png"
+  },
+  "SN64": {
+    "id": "chutes",
+    "name": "Chutes",
+    "mockPrice": 28.3,
+    "localIcon": "/coins/chutes.png"
+  },
+  "TRAC": {
+    "id": "origintrail",
+    "name": "OriginTrail",
+    "mockPrice": 0.298444,
+    "localIcon": "/coins/origintrail.png"
+  },
+  "ONYC": {
+    "id": "onyc",
+    "name": "Onchain Yield Coin",
+    "mockPrice": 1.09,
+    "localIcon": "/coins/onyc.png"
+  },
+  "THBILL": {
+    "id": "theo-short-duration-us-treasury-fund",
+    "name": "Theo Short Duration US Treasury Fund",
+    "mockPrice": 1.016,
+    "localIcon": "/coins/theo-short-duration-us-treasury-fund.png"
+  },
+  "ACRED": {
+    "id": "apollo-diversified-credit-securitize-fund",
+    "name": "Apollo Diversified Credit Securitize Fund",
+    "mockPrice": 1094.33,
+    "localIcon": "/coins/apollo-diversified-credit-securitize-fund.png"
+  },
+  "A": {
+    "id": "vaulta",
+    "name": "Vaulta",
+    "mockPrice": 0.079668,
+    "localIcon": "/coins/vaulta.png"
+  },
+  "1INCH": {
+    "id": "1inch",
+    "name": "1INCH",
+    "mockPrice": 0.091521,
+    "localIcon": "/coins/1inch.png"
+  },
+  "GLM": {
+    "id": "golem",
+    "name": "Golem",
+    "mockPrice": 0.127045,
+    "localIcon": "/coins/golem.png"
+  },
+  "GEKKO": {
+    "id": "gekko",
+    "name": "GEKKO",
+    "mockPrice": 6.36067e-7,
+    "localIcon": "/coins/gekko.png"
+  },
+  "JTO": {
+    "id": "jito-governance-token",
+    "name": "Jito",
+    "mockPrice": 0.276918,
+    "localIcon": "/coins/jito-governance-token.png"
+  },
+  "AVUSD": {
+    "id": "avant-usd",
+    "name": "Avant USD",
+    "mockPrice": 0.999456,
+    "localIcon": "/coins/avant-usd.png"
+  },
+  "SOSO": {
+    "id": "sosovalue",
+    "name": "SoSoValue",
+    "mockPrice": 0.403558,
+    "localIcon": "/coins/sosovalue.png"
+  },
+  "ATH": {
+    "id": "aethir",
+    "name": "Aethir",
+    "mockPrice": 0.00684902,
+    "localIcon": "/coins/aethir.png"
+  },
+  "OZO": {
+    "id": "ozone-chain",
+    "name": "Ozone Chain",
+    "mockPrice": 0.131054,
+    "localIcon": "/coins/ozone-chain.png"
+  },
+  "QUBIC": {
+    "id": "qubic-network",
+    "name": "Qubic",
+    "mockPrice": 9.077e-7,
+    "localIcon": "/coins/qubic-network.png"
+  },
+  "COW": {
+    "id": "cow-protocol",
+    "name": "CoW Protocol",
+    "mockPrice": 0.221472,
+    "localIcon": "/coins/cow-protocol.png"
+  },
+  "FLUID": {
+    "id": "instadapp",
+    "name": "Fluid",
+    "mockPrice": 1.56,
+    "localIcon": "/coins/instadapp.png"
+  },
+  "AKT": {
+    "id": "akash-network",
+    "name": "Akash Network",
+    "mockPrice": 0.461373,
+    "localIcon": "/coins/akash-network.png"
+  },
+  "FRXUSD": {
+    "id": "frax-usd",
+    "name": "Frax USD",
+    "mockPrice": 1,
+    "localIcon": "/coins/frax-usd.png"
+  },
+  "GOMINING": {
+    "id": "gmt-token",
+    "name": "GoMining Token",
+    "mockPrice": 0.296609,
+    "localIcon": "/coins/gmt-token.png"
+  },
+  "PUSD": {
+    "id": "pleasing-usd",
+    "name": "Pleasing USD",
+    "mockPrice": 0.994954,
+    "localIcon": "/coins/pleasing-usd.png"
+  },
+  "IMX": {
+    "id": "immutable-x",
+    "name": "Immutable",
+    "mockPrice": 0.141747,
+    "localIcon": "/coins/immutable-x.png"
+  },
+  "CASH": {
+    "id": "cash-4",
+    "name": "CASH",
+    "mockPrice": 0.997853,
+    "localIcon": "/coins/cash-4.png"
+  },
+  "ULTIMA": {
+    "id": "ultima",
+    "name": "Ultima",
+    "mockPrice": 3098.86,
+    "localIcon": "/coins/ultima.png"
+  },
+  "QRL": {
+    "id": "quantum-resistant-ledger",
+    "name": "Quantum Resistant Ledger",
+    "mockPrice": 1.48,
+    "localIcon": "/coins/quantum-resistant-ledger.png"
+  },
+  "SENT": {
+    "id": "sentient",
+    "name": "Sentient",
+    "mockPrice": 0.01589349,
+    "localIcon": "/coins/sentient.png"
+  },
+  "IUSD": {
+    "id": "infinifi-usd",
+    "name": "InfiniFi USD",
+    "mockPrice": 1.001,
+    "localIcon": "/coins/infinifi-usd.png"
+  },
+  "PC0000023": {
+    "id": "tradable-singapore-fintech-ssl-2",
+    "name": "Tradable Singapore Fintech SSL",
+    "mockPrice": 1,
+    "localIcon": "/coins/tradable-singapore-fintech-ssl-2.png"
+  },
+  "EURCV": {
+    "id": "societe-generale-forge-eurcv",
+    "name": "EUR CoinVertible",
+    "mockPrice": 1.15,
+    "localIcon": "/coins/societe-generale-forge-eurcv.png"
+  },
+  "WEMIX": {
+    "id": "wemix-token",
+    "name": "WEMIX",
+    "mockPrice": 0.247039,
+    "localIcon": "/coins/wemix-token.png"
+  },
+  "RLB": {
+    "id": "rollbit-coin",
+    "name": "Rollbit Coin",
+    "mockPrice": 0.066724,
+    "localIcon": "/coins/rollbit-coin.png"
+  },
+  "EGLD": {
+    "id": "elrond-erd-2",
+    "name": "MultiversX",
+    "mockPrice": 3.81,
+    "localIcon": "/coins/elrond-erd-2.png"
+  },
+  "PIEVERSE": {
+    "id": "pieverse",
+    "name": "Pieverse",
+    "mockPrice": 0.525952,
+    "localIcon": "/coins/pieverse.png"
+  },
+  "GAS": {
+    "id": "gas",
+    "name": "Gas",
+    "mockPrice": 1.73,
+    "localIcon": "/coins/gas.png"
+  },
+  "SHFL": {
+    "id": "shuffle-2",
+    "name": "Shuffle",
+    "mockPrice": 0.281226,
+    "localIcon": "/coins/shuffle-2.png"
+  },
+  "AR": {
+    "id": "arweave",
+    "name": "Arweave",
+    "mockPrice": 1.7,
+    "localIcon": "/coins/arweave.png"
+  },
+  "TKX": {
+    "id": "tokenize-xchange",
+    "name": "Tokenize Xchange",
+    "mockPrice": 1.39,
+    "localIcon": "/coins/tokenize-xchange.png"
+  },
+  "ARIA": {
+    "id": "aria-ai",
+    "name": "Aria.AI",
+    "mockPrice": 0.608006,
+    "localIcon": "/coins/aria-ai.png"
+  }
+}

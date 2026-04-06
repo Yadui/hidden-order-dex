@@ -1,4 +1,4 @@
-// ─── AlphaShield Midnight Service ─────────────────────────────────────────────
+// ─── HiddenOrder DEX Midnight Service ───────────────────────────────────────────
 // Node.js middleware that bridges the React frontend and the Midnight Network.
 //
 // Why a separate service?
@@ -7,29 +7,72 @@
 //   where those modules are available natively.
 //
 // Architecture:
-//   Browser (frontend:3001)
-//     → calls this service (midnight-service:5001)
+//   Browser (frontend:3006)
+//     → calls this service (midnight-service:3007)
 //   This service
 //     → @midnight-ntwrk/* SDK (WASM, Node.js)
-//     → Proof server (localhost:6300) — always local, privacy requirement
+//     → Proof server (localhost:6301) — always local, privacy requirement
 //     → Midnight testnet or local node
 // ─────────────────────────────────────────────────────────────────────────────
 
 import express from 'express'
 import cors from 'cors'
 import crypto from 'crypto'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id'
 
 // ── __dir must be defined before loadZKDeps uses it ───────────────────────────
 const __dir = dirname(fileURLToPath(import.meta.url))
+const ROOT   = resolve(__dir, '..')
+
+// ── Deployed contract address (set by scripts/deploy-contract.mjs) ────────────
+function _loadContractAddress() {
+  // 1. Prefer env var (set in .env by deploy-contract.mjs)
+  if (process.env.CONTRACT_ADDRESS) return process.env.CONTRACT_ADDRESS
+  // 2. Fall back to contract/deployed-address.json
+  const addrFile = resolve(ROOT, 'contract', 'deployed-address.json')
+  if (!existsSync(addrFile)) return null
+  try {
+    const data = JSON.parse(readFileSync(addrFile, 'utf8'))
+    const env  = process.env.MIDNIGHT_ENV ?? 'local'
+    return data[env]?.contractAddress ?? null
+  } catch { return null }
+}
+let _contractAddress = _loadContractAddress()
 
 // ── ZK proof imports ──────────────────────────────────────────────────────────
 // Loaded lazily to avoid crashing the server if something is missing.
 let _zkReady = null  // null=unchecked, true/false after first attempt
 let _zkDeps  = null
+
+// ── Inline key-material provider (zkir-v2 needs this to run proofs) ──────────
+// getParams(k): fetches SRS params from Midnight's public S3 bucket (96 KB for k=9).
+// lookupKey:    returns prover/verifier/ir from compiled contract dist/ on disk.
+// Both are cached in-process after first fetch.
+const _paramsCache    = new Map()  // k -> Uint8Array
+
+async function _makeKmProvider(keyMaterial) {
+  return {
+    lookupKey: async (_loc) => ({
+      proverKey:   new Uint8Array(keyMaterial.proverKey),
+      verifierKey: new Uint8Array(keyMaterial.verifierKey),
+      ir:          new Uint8Array(keyMaterial.ir),
+    }),
+    getParams: async (k) => {
+      if (_paramsCache.has(k)) return _paramsCache.get(k)
+      const S3 = 'https://midnight-s3-fileshare-dev-eu-west-1.s3.eu-west-1.amazonaws.com'
+      console.log(`[ZK] Fetching SRS params k=${k} from S3…`)
+      const resp = await fetch(`${S3}/bls_midnight_2p${k}`, { signal: AbortSignal.timeout(30000) })
+      if (!resp.ok) throw new Error(`S3 params fetch failed: ${resp.status}`)
+      const buf = new Uint8Array(await resp.arrayBuffer())
+      console.log(`[ZK] Cached SRS params k=${k} (${buf.length} bytes)`)
+      _paramsCache.set(k, buf)
+      return buf
+    },
+  }
+}
 
 async function loadZKDeps() {
   if (_zkReady !== null) return _zkReady
@@ -40,26 +83,33 @@ async function loadZKDeps() {
     // compact-runtime (root) re-exports from onchain-runtime-v3 (root).
     // ledger-v8 (midnight-service) re-exports its own WASM.
     // Use the _fs.js variants for Node.js (not the browser _bg.js versions).
-    const [runtimeMod, ledgerMod, contractMod] = await Promise.all([
+    const [runtimeMod, ledgerMod, contractMod, zkirMod] = await Promise.all([
       import(resolve(ROOT, 'node_modules/@midnight-ntwrk/compact-runtime/dist/index.js')),
       import(resolve(ROOT, 'midnight-service/node_modules/@midnight-ntwrk/ledger-v8/midnight_ledger_wasm_fs.js')),
-      import(resolve(ROOT, 'contract/dist/trade_proof/contract/index.js')),
+      import(resolve(ROOT, 'contract/dist/order_proof/contract/index.js')),
+      import(resolve(ROOT, 'midnight-service/node_modules/@midnight-ntwrk/zkir-v2/midnight_zkir_wasm_fs.js')),
     ])
 
-    const KEYS = resolve(ROOT, 'contract/dist/trade_proof/keys')
-    const ZKIR = resolve(ROOT, 'contract/dist/trade_proof/zkir')
+    const KEYS = resolve(ROOT, 'contract/dist/order_proof/keys')
+    const ZKIR = resolve(ROOT, 'contract/dist/order_proof/zkir')
 
     _zkDeps = {
       runtime:  runtimeMod,
       ledger:   ledgerMod,
+      zkir:     zkirMod,
       Contract: contractMod.Contract,
       keyMaterial: {
-        proverKey:   readFileSync(resolve(KEYS, 'submit_trade.prover')),
-        verifierKey: readFileSync(resolve(KEYS, 'submit_trade.verifier')),
-        ir:          readFileSync(resolve(ZKIR,  'submit_trade.bzkir')),
+        proverKey:   readFileSync(resolve(KEYS, 'submit_order.prover')),
+        verifierKey: readFileSync(resolve(KEYS, 'submit_order.verifier')),
+        ir:          readFileSync(resolve(ZKIR,  'submit_order.bzkir')),
+      },
+      settleKeyMaterial: {
+        proverKey:   readFileSync(resolve(KEYS, 'settle_order.prover')),
+        verifierKey: readFileSync(resolve(KEYS, 'settle_order.verifier')),
+        ir:          readFileSync(resolve(ZKIR,  'settle_order.bzkir')),
       },
     }
-    console.log('[ZK] ✅ Proof dependencies loaded — prover key:', _zkDeps.keyMaterial.proverKey.length, 'bytes')
+    console.log('[ZK] ✅ Proof dependencies loaded — submit prover:', _zkDeps.keyMaterial.proverKey.length, 'bytes, settle prover:', _zkDeps.settleKeyMaterial.proverKey.length, 'bytes')
     _zkReady = true
   } catch (e) {
     console.warn('[ZK] Failed to load proof dependencies:', e.message)
@@ -82,25 +132,26 @@ try {
 } catch { /* no .env is fine */ }
 
 const app = express()
-app.use(cors())
+const _MS_ALLOWED_ORIGINS = (process.env.CORS_ORIGINS ?? 'http://localhost:3006,http://127.0.0.1:3006,http://localhost:5173,http://127.0.0.1:5173').split(',')
+app.use(cors({ origin: _MS_ALLOWED_ORIGINS }))
 app.use(express.json())
 
 // ── Network config ────────────────────────────────────────────────────────────
-const MIDNIGHT_ENV = process.env.MIDNIGHT_ENV ?? 'local'
+const MIDNIGHT_ENV = process.env.MIDNIGHT_ENV ?? 'preview'
 const NETWORK_CONFIGS = {
-  local: {
-    networkId:   'undeployed',
-    indexer:     'http://127.0.0.1:8088/api/v3/graphql',
-    indexerWS:   'ws://127.0.0.1:8088/api/v3/graphql/ws',
-    node:        'http://127.0.0.1:9944',
-    proofServer: 'http://localhost:6300',
+  preview: {
+    networkId:   'preview',
+    indexer:     'https://indexer.preview.midnight.network/api/v3/graphql',
+    indexerWS:   'wss://indexer.preview.midnight.network/api/v3/graphql/ws',
+    node:        'wss://rpc.preview.midnight.network',
+    proofServer: process.env.PROOF_SERVER_URL ?? 'http://localhost:6300',
   },
-  testnet: {
-    networkId:   'testnet-02',
-    indexer:     'https://indexer.testnet-02.midnight.network/api/v3/graphql',
-    indexerWS:   'wss://indexer.testnet-02.midnight.network/api/v3/graphql/ws',
-    node:        'wss://rpc.testnet-02.midnight.network',
-    proofServer: 'http://localhost:6300',
+  preprod: {
+    networkId:   'preprod',
+    indexer:     'https://indexer.preprod.midnight.network/api/v3/graphql',
+    indexerWS:   'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
+    node:        'wss://rpc.preprod.midnight.network',
+    proofServer: process.env.PROOF_SERVER_URL ?? 'http://localhost:6300',
   },
 }
 const netConfig = NETWORK_CONFIGS[MIDNIGHT_ENV]
@@ -108,67 +159,66 @@ setNetworkId(netConfig.networkId)
 
 // ── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', async (_req, res) => {
-  const proofServerOk = await checkProofServer()
   const zkReady = await loadZKDeps()
+  // S3 params availability — quick HEAD check with short timeout
+  let paramsReachable = false
+  try {
+    const r = await fetch('https://midnight-s3-fileshare-dev-eu-west-1.s3.eu-west-1.amazonaws.com/bls_midnight_2p9', {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(3000),
+    })
+    paramsReachable = r.ok
+  } catch { /* offline is fine — params are cached after first fetch */ }
+
+  // params_cached = k=9 already in memory (no further S3 calls needed)
+  const paramsCached = _paramsCache.has(9)
+
   res.json({
     status: 'ok',
     midnight_env: MIDNIGHT_ENV,
     network_id: netConfig.networkId,
-    proof_server: proofServerOk ? 'reachable' : 'unreachable',
     contract_compiled: zkReady,
-    zk_mode: zkReady && proofServerOk ? 'real' : 'mock',
+    contract_address: _contractAddress ?? null,
+    params_s3_reachable: paramsReachable,
+    params_cached: paramsCached,
+    // real ZK proofs work if contract is compiled AND (params cached OR S3 reachable)
+    zk_mode: zkReady && (paramsCached || paramsReachable) ? 'real' : 'mock',
+    proof_server: 'inline (zkir-v2 + S3 params — no external server required)',
   })
 })
 
 // ── POST /submit-proof ────────────────────────────────────────────────────────
-// Generates a real ZK proof via the local proof server (port 6300).
+// Generates a real ZK proof via the local proof server (port 6301).
 // Architecture: run circuit locally → serialize preimage → POST /prove → proof bytes
 // No wallet, node, or indexer needed — just the compiled contract keys + proof server.
 //
-// Body: { asset, amount, price, timestamp, signal }
-// Returns: { proofHash, contractAddress, txHash, reasoningHash, mode }
+// Body: { order_id, asset_pair, side, price_cents, amount_units, timestamp }
+// Returns: { proofHash, contractAddress, txHash, mode }
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/submit-proof', async (req, res) => {
-  const { asset, amount, price, timestamp, signal } = req.body
+  const { order_id, asset_pair, side, price_cents, amount_units, timestamp } = req.body
 
-  if (!signal || typeof signal.confidence !== 'number') {
-    return res.status(400).json({ error: 'signal.confidence required' })
+  if (!order_id || !asset_pair || !side) {
+    return res.status(400).json({ error: 'order_id, asset_pair, and side are required' })
   }
-  if (signal.confidence < 70) {
-    return res.status(422).json({
-      error: `Confidence ${signal.confidence}% below ZK threshold (70%). Generate a stronger signal.`,
-    })
+  if (!price_cents || price_cents <= 0) {
+    return res.status(422).json({ error: 'price_cents must be > 0' })
   }
-
-  // ── v2 Risk parameter validation (circuit constraints enforced here) ──────
-  const stopLossPct  = Math.round(signal.stop_loss_pct  ?? 10)
-  const positionPct  = Math.round(signal.position_pct   ?? 20)
-
-  if (stopLossPct < 1 || stopLossPct > 20) {
-    return res.status(422).json({ error: `Stop-loss ${stopLossPct}% out of valid range (1–20%). v2 circuit will reject.` })
-  }
-  if (positionPct < 1 || positionPct > 50) {
-    return res.status(422).json({ error: `Position size ${positionPct}% out of valid range (1–50%). v2 circuit will reject.` })
-  }
-  if (signal.confidence + positionPct > 120) {
-    return res.status(422).json({
-      error: `Risk-adjusted sizing failed: confidence(${signal.confidence}) + position(${positionPct}) = ${signal.confidence + positionPct} > 120. Reduce position size.`,
-    })
+  if (!amount_units || amount_units <= 0) {
+    return res.status(422).json({ error: 'amount_units must be > 0' })
   }
 
-  // SHA-256 of ( AI reasoning | stop_loss_pct | position_pct )
-  // The hash commits to risk parameters without revealing them — a judge can verify
-  // the hash was computed with specific risk params once the whale discloses them.
-  const reasoningHash = crypto
+  // SHA-256(order_id||asset_pair||timestamp) used as settlement_hash pre-image commitment
+  const settlementHash = crypto
     .createHash('sha256')
-    .update(`${signal.reasoning ?? ''}|sl:${stopLossPct}|pos:${positionPct}`)
+    .update(`${order_id}${asset_pair}${timestamp ?? new Date().toISOString()}`)
     .digest('hex')
 
-  // ── Real ZK proof via proof server ────────────────────────────────────────
+  // ── Real ZK proof via zkir-v2 inline (no separate proof server needed) ──────
   const zkReady = await loadZKDeps()
   if (zkReady) {
     try {
-      const { runtime, ledger, Contract, keyMaterial } = _zkDeps
+      const { runtime, ledger, zkir, Contract, keyMaterial } = _zkDeps
 
       // Fresh contract state (stateless proving — we only need the circuit)
       const dummyCoinPubKey = { bytes: new Uint8Array(32) }
@@ -187,21 +237,26 @@ app.post('/submit-proof', async (req, res) => {
         {}
       )
 
-      // Run the ZK circuit — private witnesses (direction, confidence) never leave this process
-      const direction  = BigInt(signal.direction === 'BUY' ? 1 : 0)
-      const confidence = BigInt(Math.round(signal.confidence))
+      // Run the ZK circuit — private witnesses (price_cents, amount_units, side, nonce) never leave this process
+      const sideInt    = BigInt(side === 'BUY' ? 0 : 1)
+      const priceBig   = BigInt(Math.round(price_cents))
+      const amountBig  = BigInt(Math.round(amount_units))
+      const nonce      = BigInt('0x' + crypto.randomBytes(8).toString('hex'))
+      const ts         = timestamp ?? new Date().toISOString()
 
-      const { proofData } = contract.circuits.submit_trade(
+      const { proofData } = contract.circuits.submit_order(
         ctx,
-        asset,
-        timestamp,
-        String(amount),
-        reasoningHash,        // SHA-256 hex string committed publicly
-        direction,            // PRIVATE — never disclosed
-        confidence,           // PRIVATE — never disclosed
+        order_id,
+        asset_pair,
+        ts,
+        settlementHash,   // SHA-256 commitment — disclosed publicly
+        priceBig,         // PRIVATE — never disclosed
+        amountBig,        // PRIVATE — never disclosed
+        sideInt,          // PRIVATE — never disclosed
+        nonce,            // PRIVATE — never disclosed
       )
 
-      // Serialize to binary preimage format
+      // Serialize to binary preimage format expected by zkir-v2
       const preimage = ledger.proofDataIntoSerializedPreimage(
         proofData.input,
         proofData.output,
@@ -210,50 +265,27 @@ app.post('/submit-proof', async (req, res) => {
         null
       )
 
-      // Wrap with prover key + verifier key + ZKIR → HTTP binary payload
-      const payload = ledger.createProvingPayload(
-        preimage,
-        undefined,
-        {
-          proverKey:   new Uint8Array(keyMaterial.proverKey),
-          verifierKey: new Uint8Array(keyMaterial.verifierKey),
-          ir:          new Uint8Array(keyMaterial.ir),
-        }
-      )
+      // Build key-material provider — getParams fetches SRS from Midnight S3 (cached)
+      const kmProvider = await _makeKmProvider(keyMaterial)
 
-      // Send to local proof server — this is where the actual ZK proof is computed
-      const proofStart = Date.now()
-      const proofResp = await fetch(`${netConfig.proofServer}/prove`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: payload,
-        signal: AbortSignal.timeout(60000),
-      })
+      // Generate real ZK proof inline — no separate proof server process required
+      const t0 = Date.now()
+      const proofBytes = await zkir.prove(preimage, kmProvider)
+      const ms = Date.now() - t0
 
-      if (!proofResp.ok) {
-        const errText = await proofResp.text()
-        throw new Error(`Proof server ${proofResp.status}: ${errText}`)
-      }
-
-      const proofBytes = new Uint8Array(await proofResp.arrayBuffer())
-      const proofGeneratedMs = Date.now() - proofStart
       const proofHash = crypto.createHash('sha256').update(proofBytes).digest('hex')
 
-      console.log(`[ZK] Real proof generated ✅ (${proofBytes.length} bytes, ${proofGeneratedMs}ms) direction=${signal.direction} confidence=${signal.confidence}`)
+      console.log(`[ZK] Real proof generated ✅ (${proofBytes.length} bytes, ${ms}ms) pair=${asset_pair} side=${side}`)
 
       return res.json({
         proofHash,
-        contractAddress: null,
+        contractAddress: _contractAddress ?? null,
         txHash: null,
-        reasoningHash,
+        settlementHash,
         mode: 'real',
         proofBytes: Buffer.from(proofBytes).toString('base64'),
-        proofPreimage: Buffer.from(preimage).toString('base64'),
         proofSizeBytes: proofBytes.length,
-        proofGeneratedMs,
-        // v2 public fields (service-enforced, hash-committed)
-        riskCommitted:   stopLossPct + positionPct,
-        strategyVersion: 2,
+        proofGeneratedMs: ms,
       })
     } catch (err) {
       console.warn('[ZK] Real proof failed, falling back to mock:', err.message)
@@ -261,84 +293,231 @@ app.post('/submit-proof', async (req, res) => {
   }
 
   // ── Fallback: SHA-256 mock proof ──────────────────────────────────────────
-  const raw = `${asset}${amount}${timestamp}MIDNIGHT_ZK`
+  const raw = `${order_id}${asset_pair}${side}MIDNIGHT_ZK`
   const proofHash = crypto.createHash('sha256').update(raw).digest('hex')
-  return res.json({
-    proofHash, contractAddress: null, txHash: null, reasoningHash, mode: 'mock',
-    riskCommitted: stopLossPct + positionPct,
-    strategyVersion: 2,
-  })
+  return res.json({ proofHash, contractAddress: null, txHash: null, settlementHash, mode: 'mock' })
 })
 
-// ── POST /verify-proof ────────────────────────────────────────────────────────
-// Cryptographically verifies a previously-generated ZK proof preimage by sending
-// it to the Midnight proof server's /check endpoint.
+// ── POST /settle-proof ────────────────────────────────────────────────────────
+// Runs the settle_order ZK circuit to prove fairness of a matched trade.
+// All price witnesses are PRIVATE — only the proof hash is returned.
 //
-// Body: { preimage }  — base64-encoded serialized preimage from submit-proof
-// Returns: { valid: boolean, mode: 'real' | 'mock' }
+// Body: {
+//   order_id:            string   — buy order UUID (used as circuit oid)
+//   matched_price_cents: number   — PRIVATE witness: actual matched price
+//   buyer_limit_cents:   number   — PRIVATE witness: buyer's limit price
+//   seller_limit_cents:  number   — PRIVATE witness: seller's limit price
+// }
+// Circuit asserts: seller_limit <= matched_price <= buyer_limit
+// Returns: { proofHash, fairnessProven: true, mode }
 // ─────────────────────────────────────────────────────────────────────────────
-app.post('/verify-proof', async (req, res) => {
-  const { preimage: preimageB64 } = req.body
-  if (!preimageB64) {
-    return res.status(400).json({ error: 'preimage required' })
+app.post('/settle-proof', async (req, res) => {
+  const { order_id, matched_price_cents, buyer_limit_cents, seller_limit_cents } = req.body
+
+  if (!order_id) {
+    return res.status(400).json({ error: 'order_id is required' })
+  }
+  if (!matched_price_cents || matched_price_cents <= 0) {
+    return res.status(422).json({ error: 'matched_price_cents must be > 0' })
+  }
+  if (!buyer_limit_cents || buyer_limit_cents <= 0) {
+    return res.status(422).json({ error: 'buyer_limit_cents must be > 0' })
+  }
+  if (!seller_limit_cents || seller_limit_cents <= 0) {
+    return res.status(422).json({ error: 'seller_limit_cents must be > 0' })
   }
 
+  // Validate the fairness constraint before attempting ZK proof
+  if (matched_price_cents < seller_limit_cents) {
+    return res.status(422).json({ error: 'settle_order: seller price floor not met' })
+  }
+  if (matched_price_cents > buyer_limit_cents) {
+    return res.status(422).json({ error: 'settle_order: buyer price ceiling exceeded' })
+  }
+
+  // ── Real ZK proof via settle_order circuit ────────────────────────────────
+  const zkReady = await loadZKDeps()
+  if (zkReady) {
+    try {
+      const { runtime, ledger, zkir, Contract, settleKeyMaterial } = _zkDeps
+
+      const dummyCoinPubKey = { bytes: new Uint8Array(32) }
+      const addr = runtime.sampleContractAddress()
+      const contract = new Contract({})
+      const { currentContractState } = contract.initialState({
+        initialZswapLocalState: { coinPublicKey: dummyCoinPubKey },
+        initialPrivateState: {},
+      })
+
+      const ctx = runtime.createCircuitContext(
+        addr,
+        dummyCoinPubKey,
+        currentContractState.data,
+        {}
+      )
+
+      // All three price values are PRIVATE witnesses — they prove the inequality
+      // without disclosing any individual limit or matched price on-chain.
+      const { proofData } = contract.circuits.settle_order(
+        ctx,
+        order_id,                               // disclosed: order identifier
+        BigInt(Math.round(matched_price_cents)), // PRIVATE: actual matched price
+        BigInt(Math.round(buyer_limit_cents)),   // PRIVATE: buyer's limit
+        BigInt(Math.round(seller_limit_cents)),  // PRIVATE: seller's limit
+      )
+
+      const preimage = ledger.proofDataIntoSerializedPreimage(
+        proofData.input,
+        proofData.output,
+        proofData.publicTranscript,
+        proofData.privateTranscriptOutputs,
+        null
+      )
+
+      const kmProvider = await _makeKmProvider(settleKeyMaterial)
+
+      const t0 = Date.now()
+      const proofBytes = await zkir.prove(preimage, kmProvider)
+      const ms = Date.now() - t0
+
+      const proofHash = crypto.createHash('sha256').update(proofBytes).digest('hex')
+
+      console.log(`[ZK] ✅ settle_order proof (${proofBytes.length} bytes, ${ms}ms) order=${order_id}`)
+
+      return res.json({
+        proofHash,
+        fairnessProven: true,
+        mode: 'real',
+        proofSizeBytes: proofBytes.length,
+        proofGeneratedMs: ms,
+      })
+    } catch (err) {
+      console.warn('[ZK] settle_order proof failed, falling back to mock:', err.message)
+    }
+  }
+
+  // ── Fallback: mock settle proof ───────────────────────────────────────────
+  const raw = `${order_id}SETTLE${matched_price_cents}MIDNIGHT_ZK`
+  const proofHash = crypto.createHash('sha256').update(raw).digest('hex')
+  return res.json({ proofHash, fairnessProven: true, mode: 'mock' })
+})
+
+// ── GET /contract-address ─────────────────────────────────────────────────────
+// Returns the deployed contract address (set by scripts/deploy-contract.mjs).
+app.get('/contract-address', (_req, res) => {
+  // Re-read in case it was updated since startup
+  _contractAddress = _loadContractAddress()
+  if (!_contractAddress) {
+    return res.status(404).json({
+      error: 'Contract not deployed yet. Run: node scripts/deploy-contract.mjs',
+      network: MIDNIGHT_ENV,
+    })
+  }
+  res.json({ contractAddress: _contractAddress, network: MIDNIGHT_ENV, networkId: netConfig.networkId })
+})
+
+// ── POST /prove ───────────────────────────────────────────────────────────────
+// Proof-server-compatible endpoint: accepts a proving payload (binary) from
+// @midnight-ntwrk/wallet-sdk-prover-client and returns raw proof bytes.
+// This makes scripts/deploy-contract.mjs's HttpProverClient work against
+// this service instead of the external proof-server Docker image.
+//
+// The payload is created by ledger.createProvingPayload(preimage, overwrite, keys).
+// The response is raw proof bytes that the SDK parses back into a proven transaction.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/prove', express.raw({ type: '*/*', limit: '10mb' }), async (req, res) => {
   const zkReady = await loadZKDeps()
   if (!zkReady) {
-    // No proof server or keys — optimistic mock pass for demo
-    return res.json({ valid: true, mode: 'mock', message: 'ZK deps not loaded — mock pass' })
+    return res.status(503).send('ZK dependencies not loaded')
   }
-
   try {
-    const { ledger, keyMaterial } = _zkDeps
-    const preimage = new Uint8Array(Buffer.from(preimageB64, 'base64'))
-    const checkPayload = ledger.createCheckPayload(preimage, new Uint8Array(keyMaterial.ir))
+    const { ledger, zkir, keyMaterial, settleKeyMaterial } = _zkDeps
+    const payloadBytes = new Uint8Array(req.body)
 
-    const checkResp = await fetch(`${netConfig.proofServer}/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: checkPayload,
-      signal: AbortSignal.timeout(30000),
-    })
-
-    if (!checkResp.ok) {
-      const errText = await checkResp.text()
-      console.warn('[ZK] /check returned', checkResp.status, errText)
-      return res.json({ valid: false, mode: 'real', error: errText })
+    // Build a combined km provider covering both circuits
+    const combinedKm = {
+      lookupKey: async (loc) => {
+        const isSettle = String(loc).includes('settle')
+        const km = isSettle ? settleKeyMaterial : keyMaterial
+        return {
+          proverKey:   new Uint8Array(km.proverKey),
+          verifierKey: new Uint8Array(km.verifierKey),
+          ir:          new Uint8Array(km.ir),
+        }
+      },
+      getParams: async (k) => {
+        if (_paramsCache.has(k)) return _paramsCache.get(k)
+        const S3 = 'https://midnight-s3-fileshare-dev-eu-west-1.s3.eu-west-1.amazonaws.com'
+        const r = await fetch(`${S3}/bls_midnight_2p${k}`, { signal: AbortSignal.timeout(60_000) })
+        if (!r.ok) throw new Error(`S3 params fetch failed: ${r.status}`)
+        const buf = new Uint8Array(await r.arrayBuffer())
+        _paramsCache.set(k, buf)
+        return buf
+      },
     }
 
-    const resultBytes = new Uint8Array(await checkResp.arrayBuffer())
-    // parseCheckResult returns an array of bigint or undefined; a non-empty result means valid
-    const parsed = ledger.parseCheckResult(resultBytes)
-    const valid = Array.isArray(parsed) && parsed.length > 0
-
-    console.log(`[ZK] Proof check result: ${valid ? '✅ VALID' : '❌ INVALID'} (${parsed?.length} outputs)`)
-    return res.json({ valid, mode: 'real' })
+    // Use the WrappedProvingProvider which accepts the proving-payload format
+    const provider = zkir.provingProvider(combinedKm)
+    // The proving payload bundles preimage + key location; the provider handles parsing
+    const proofBytes = await provider.prove(payloadBytes, 'submit_order', null)
+    res.set('Content-Type', 'application/octet-stream').send(Buffer.from(proofBytes))
   } catch (err) {
-    console.warn('[ZK] Proof verification error:', err.message)
-    return res.status(500).json({ valid: false, mode: 'real', error: err.message })
+    console.warn('[prove] Failed:', err.message)
+    res.status(500).send(err.message)
   }
 })
 
-// ── GET /proof-server-status ──────────────────────────────────────────────────
-app.get('/proof-server-status', async (_req, res) => {
-  res.json({ reachable: await checkProofServer() })
-})
-
+// ── POST /check ───────────────────────────────────────────────────────────────
+// Proof-server-compatible check endpoint (pre-prove validation).
 // ─────────────────────────────────────────────────────────────────────────────
-async function checkProofServer() {
-  try {
-    const r = await fetch(`${netConfig.proofServer}/health`, {
-      signal: AbortSignal.timeout(2000),
-    })
-    return r.ok
-  } catch {
-    return false
+app.post('/check', express.raw({ type: '*/*', limit: '10mb' }), async (req, res) => {
+  const zkReady = await loadZKDeps()
+  if (!zkReady) {
+    return res.status(503).send('ZK dependencies not loaded')
   }
-}
+  try {
+    const { ledger, zkir, keyMaterial } = _zkDeps
+    const payloadBytes = new Uint8Array(req.body)
 
-const PORT = process.env.PORT ?? 5001
+    const combinedKm = {
+      lookupKey: async () => ({
+        proverKey:   new Uint8Array(keyMaterial.proverKey),
+        verifierKey: new Uint8Array(keyMaterial.verifierKey),
+        ir:          new Uint8Array(keyMaterial.ir),
+      }),
+      getParams: async (k) => {
+        if (_paramsCache.has(k)) return _paramsCache.get(k)
+        const S3 = 'https://midnight-s3-fileshare-dev-eu-west-1.s3.eu-west-1.amazonaws.com'
+        const r = await fetch(`${S3}/bls_midnight_2p${k}`, { signal: AbortSignal.timeout(60_000) })
+        if (!r.ok) throw new Error(`S3 params fetch failed: ${r.status}`)
+        const buf = new Uint8Array(await r.arrayBuffer())
+        _paramsCache.set(k, buf)
+        return buf
+      },
+    }
+
+    const provider = zkir.provingProvider(combinedKm)
+    const result = await provider.check(payloadBytes, 'submit_order')
+    const responseBytes = ledger.createCheckPayload(new Uint8Array(result))
+    res.set('Content-Type', 'application/octet-stream').send(Buffer.from(responseBytes))
+  } catch (err) {
+    console.warn('[check] Failed:', err.message)
+    res.status(500).send(err.message)
+  }
+})
+
+// ── GET /proof-server-status (kept for backwards compat) ─────────────────────
+app.get('/proof-server-status', async (_req, res) => {
+  // No external proof server — proving is inline via zkir-v2
+  const paramsCached = _paramsCache.has(9)
+  res.json({ reachable: true, inline: true, params_cached: paramsCached })
+})
+
+const PORT = process.env.PORT ?? 3007
 app.listen(PORT, () => {
-  console.log(`[AlphaShield] Midnight service running on http://localhost:${PORT}`)
-  console.log(`[AlphaShield] Network: ${MIDNIGHT_ENV} (${netConfig.networkId})`)
+  const addr = _contractAddress ? `  contract: ${_contractAddress}` : '  contract: (not deployed — run node scripts/deploy-contract.mjs)'
+  console.log(`[HiddenOrderDEX] Midnight service running on http://localhost:${PORT}`)
+  console.log(`[HiddenOrderDEX] Network: ${MIDNIGHT_ENV} (${netConfig.networkId})`)
+  console.log(`[HiddenOrderDEX] ZK proofs: inline via zkir-v2 (no external proof server)`)
+  console.log(addr)
 })

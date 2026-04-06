@@ -1,149 +1,96 @@
-import { useState } from 'react'
-import { Shield, ShieldOff, Wifi, WifiOff, Loader2, ChevronDown } from 'lucide-react'
-import WalletModal from './WalletModal.jsx'
+import { Layers, WifiOff, Loader2 } from 'lucide-react'
 
 const TABS = [
-  { id: 'whale', label: '🐋 Whale' },
-  { id: 'follower', label: '👥 Follower' },
-  { id: 'auditor', label: '🔍 Auditor' },
+  { id: 'trader',     label: 'Trader' },
+  { id: 'orderbook',  label: 'Order Book' },
+  { id: 'settlement', label: 'Settlement' },
+  { id: 'whale',      label: 'Whale AI' },
+  { id: 'follower',   label: 'Copy Trade' },
+  { id: 'auditor',    label: 'Auditor' },
 ]
 
-export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab, setCurrentTab, midnight }) {
-  const [showWalletModal, setShowWalletModal] = useState(false)
-
+export default function Navbar({ currentTab, setCurrentTab, midnight }) {
   return (
-    <>
-      {showWalletModal && (
-        <WalletModal
-          onClose={() => setShowWalletModal(false)}
-          connect={midnight?.connect}
-          walletStatus={midnight?.walletStatus}
-          walletError={midnight?.walletError}
-          isLaceInstalled={midnight?.isLaceInstalled}
-          proofServerUp={midnight?.proofServerUp}
-          networkId={midnight?.networkId}
-        />
-      )}
-
-    <nav
-      className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors duration-700 ${
-        midnightEnabled
-          ? 'bg-[#0d0d1a]/95 border-violet-900/50'
-          : 'bg-[#120808]/95 border-red-900/50'
-      }`}
-    >
+    <nav className="sticky top-0 z-50 bg-[#07070e]/96 backdrop-blur-xl border-b border-white/[0.04]">
       <div className="max-w-7xl mx-auto px-4">
         {/* Top row */}
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div
-              className={`p-2 rounded-lg transition-colors duration-700 ${
-                midnightEnabled ? 'bg-violet-900/50' : 'bg-red-900/50'
-              }`}
-            >
-              {midnightEnabled
-                ? <Shield size={20} className="text-violet-400" />
-                : <ShieldOff size={20} className="text-red-400" />
-              }
+            <div className="relative flex items-center justify-center w-8 h-8">
+              <div className="absolute inset-0 rounded-lg bg-violet-600/25 blur-sm" />
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-[#130c2e] border border-violet-600/25">
+                <Layers size={15} className="text-violet-400" />
+              </div>
             </div>
-            <div>
-              <span
-                className={`text-xl font-bold tracking-tight transition-colors duration-700 ${
-                  midnightEnabled ? 'text-violet-300' : 'text-red-300'
-                }`}
-              >
-                AlphaShield
+            <div className="flex flex-col leading-none gap-0.5">
+              <div className="flex items-baseline">
+                <span className="text-[17px] font-bold tracking-tight bg-gradient-to-r from-violet-300 via-purple-300 to-fuchsia-400 bg-clip-text text-transparent">
+                  HiddenOrder
+                </span>
+                <span className="text-[17px] font-bold tracking-tight text-white/85 ml-1">DEX</span>
+              </div>
+              <span className="text-[10px] font-mono text-violet-600/60 tracking-[0.15em] uppercase">
+                dark pool · midnight
               </span>
-              <span className="text-slate-500 text-xs ml-2 font-mono">v1.0 · Midnight Network</span>
             </div>
           </div>
 
-          {/* Wallet + ZK status */}
-          <div className="hidden md:flex items-center gap-2 mr-4">
-            {/* ZK mode pill — always visible if service is up */}
-            {midnight?.serviceUp && (
-              <span className={`text-xs px-2 py-0.5 rounded font-mono font-bold border ${
-                midnight?.serviceZkMode === 'real'
-                  ? 'bg-violet-950/50 text-violet-300 border-violet-700'
-                  : 'bg-slate-900 text-slate-500 border-slate-700'
-              }`}>
-                {midnight?.serviceZkMode === 'real' ? '⚡ ZK real' : '🔵 ZK mock'}
-              </span>
-            )}
-
-            {/* Wallet button */}
+          {/* Status */}
+          <div className="hidden md:flex items-center gap-2">
             {midnight?.walletStatus === 'connected' ? (
-              <button
-                onClick={() => setShowWalletModal(true)}
-                className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 hover:border-emerald-600 px-2.5 py-1 rounded-full font-mono transition-all"
-              >
-                <Wifi size={11} />
-                {midnight.walletAddress}
+              <div className="flex items-center gap-1.5 text-xs text-emerald-300/80 bg-emerald-950/20 border border-emerald-500/15 px-3 py-1.5 rounded-full font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                <span>{midnight.walletAddress}</span>
                 {midnight.proofServerUp
-                  ? <span className="text-emerald-600">· proof ✓</span>
-                  : <span className="text-amber-500">· proof ✗</span>
+                  ? <span className="ml-1.5 text-emerald-500/60">· proof ✓</span>
+                  : <span className="ml-1.5 text-amber-500/60">· proof ✗</span>
                 }
-                <ChevronDown size={10} className="text-emerald-700" />
-              </button>
+                {midnight.networkId && (
+                  <span className="ml-1.5 text-slate-600">· {midnight.networkId}</span>
+                )}
+              </div>
             ) : midnight?.walletStatus === 'connecting' ? (
-              <span className="flex items-center gap-1.5 text-xs text-violet-400 bg-violet-950/40 border border-violet-800/60 px-2.5 py-1 rounded-full font-mono">
-                <Loader2 size={11} className="animate-spin" />
-                Connecting to Lace…
-              </span>
+              <div className="flex items-center gap-1.5 text-xs text-violet-300/80 bg-violet-950/20 border border-violet-500/15 px-3 py-1.5 rounded-full font-mono">
+                <Loader2 size={10} className="animate-spin" />
+                <span>Connecting…</span>
+              </div>
             ) : (
               <button
-                onClick={() => setShowWalletModal(true)}
-                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-300 bg-slate-900 hover:bg-violet-950/40 border border-slate-700 hover:border-violet-700 px-2.5 py-1 rounded-full font-mono transition-all"
+                onClick={midnight?.connect}
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-violet-300 bg-transparent hover:bg-violet-950/30 border border-white/[0.06] hover:border-violet-600/30 px-3 py-1.5 rounded-full font-mono transition-all duration-200"
               >
-                <WifiOff size={11} />
-                {midnight?.walletError ? 'Retry Connection' : 'Connect Wallet'}
-                {midnight?.walletError && <span className="text-red-400 ml-1">⚠</span>}
+                <WifiOff size={10} />
+                Connect Lace
               </button>
             )}
-          </div>
-
-          {/* Toggle */}
-          <div className="flex items-center gap-3">
-            <span className="text-slate-400 text-sm font-medium hidden sm:block">Midnight</span>
-            <button
-              onClick={() => setMidnightEnabled(!midnightEnabled)}
-              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none ${
-                midnightEnabled ? 'bg-violet-600' : 'bg-red-700'
-              }`}
-              aria-label="Toggle Midnight Network"
-            >
-              <span
-                className={`inline-block h-5 w-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${
-                  midnightEnabled ? 'translate-x-8' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded font-mono transition-colors duration-300 ${
-              midnightEnabled ? 'bg-violet-900/60 text-violet-300' : 'bg-red-900/60 text-red-300'
-            }`}>
-              {midnightEnabled ? 'ON' : 'OFF'}
-            </span>
-            {!midnightEnabled && (
-              <span className="text-xs font-bold text-red-400 bg-red-900/40 border border-red-700 px-2 py-0.5 rounded hidden sm:block">
-                ⚠️ EXPOSED
+            {midnight?.serviceUp && (
+              <span className={`text-xs px-2.5 py-1 rounded-full font-mono border ${
+                midnight?.serviceZkMode === 'real'
+                  ? 'text-violet-300/80 bg-violet-950/20 border-violet-500/15'
+                  : 'text-slate-600 bg-transparent border-white/[0.04]'
+              }`}>
+                {midnight?.serviceZkMode === 'real' ? '⚡ zk·real' : '· zk·mock'}
+              </span>
+            )}
+            {midnight?.contractAddress && (
+              <span className="text-xs font-mono text-slate-700 border border-white/[0.03] px-2 py-1 rounded-full" title={midnight.contractAddress}>
+                📄 {midnight.contractAddress.slice(0, 10)}…
               </span>
             )}
           </div>
         </div>
 
-        {/* Tab row */}
-        <div className="flex gap-1 pb-2">
+        {/* Pill tabs */}
+        <div className="flex gap-1 pb-2.5">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-200 ${
                 currentTab === tab.id
-                  ? midnightEnabled
-                    ? 'bg-violet-900/60 text-violet-200 border-b-2 border-violet-500'
-                    : 'bg-red-900/60 text-red-200 border-b-2 border-red-500'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  ? 'bg-violet-950/80 text-violet-200 ring-1 ring-violet-700/40 shadow-[0_0_18px_rgba(124,58,237,0.22),inset_0_1px_0_rgba(167,139,250,0.08)]'
+                  : 'text-slate-600 hover:text-slate-300 hover:bg-white/[0.04]'
               }`}
             >
               {tab.label}
@@ -152,6 +99,5 @@ export default function Navbar({ midnightEnabled, setMidnightEnabled, currentTab
         </div>
       </div>
     </nav>
-    </>
   )
 }

@@ -5,20 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 3001,
+    port: 3006,
     proxy: {
       '/api': {
-        target: 'http://localhost:8005',
+        target: 'http://localhost:8006',
         changeOrigin: true,
-      },
-      '/coingecko': {
-        target: 'http://localhost:8005',
-        changeOrigin: true,
-      },
-      '/midnight': {
-        target: 'http://localhost:5001',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/midnight/, ''),
       },
     },
   },

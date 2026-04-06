@@ -1,422 +1,209 @@
-import { TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Zap, Bot, Lock, Loader2 } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
-import { submitTradeProof } from '../midnight/api.js'
+import { useState, useEffect, useCallback } from 'react'
+import { Users, RefreshCw, Lock, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
-// ── Obfuscated whale profile ──────────────────────────────────────────────────
-function WhaleProfile({ midnightEnabled }) {
-  const [profile, setProfile] = useState(null)
+function ago(ts) {
+  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
+  if (diff < 60)  return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  return `${Math.floor(diff / 3600)}h ago`
+}
 
-  useEffect(() => {
-    fetch('/api/whale-profile/alphashield-demo-whale')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d && setProfile(d))
-      .catch(() => {})
+function SignalIcon({ asset_pair }) {
+  // Use the settlement_hash as a deterministic mock signal indicator for display only.
+  // Followers never see the actual signal or reasoning.
+  return <Lock size={13} className="text-violet-400" />
+}
+
+export default function FollowerView() {
+  const [feed, setFeed] = useState([])
+  const [signals, setSignals] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [tradesRes, signalsRes] = await Promise.all([
+        fetch('/api/trades/public'),
+        fetch('/api/ai/feed'),
+      ])
+      if (tradesRes.ok)  setFeed(await tradesRes.json())
+      if (signalsRes.ok) setSignals(await signalsRes.json())
+      setLastUpdated(new Date())
+    } catch {
+      // backend not running
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const accentBorder = midnightEnabled ? 'border-violet-800/50' : 'border-red-800/50'
-  const cardBg       = midnightEnabled ? 'bg-[#10101f]'         : 'bg-[#150808]'
-
-  if (!profile) return null
-  return (
-    <div className={`rounded-xl border ${accentBorder} ${cardBg} p-4`}>
-      <div className="flex items-center gap-3 mb-3">
-        {/* Obfuscated avatar */}
-        <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm ${
-          midnightEnabled ? 'border-violet-600 bg-violet-950/60 text-violet-300' : 'border-red-600 bg-red-950/60 text-red-300'
-        }`}>
-          {profile.whale_id.slice(0, 2)}
-        </div>
-        <div>
-          <p className="text-white font-bold text-sm">Whale #{profile.whale_id}</p>
-          <div className="flex items-center gap-1.5">
-            <Lock size={10} className={midnightEnabled ? 'text-violet-500' : 'text-red-500'} />
-            <span className="text-slate-500 text-xs font-mono">identity hidden · ZK-verified execution</span>
-          </div>
-        </div>
-        <span className={`ml-auto text-xs font-mono font-bold px-2 py-0.5 rounded border ${
-          midnightEnabled
-            ? 'text-emerald-400 border-emerald-800 bg-emerald-950/40'
-            : 'text-amber-400 border-amber-800 bg-amber-950/40'
-        }`}>
-          {profile.strategy_hidden ? '🔒 Strategy Hidden' : '⚠️ Exposed'}
-        </span>
-      </div>
-      <div className="grid grid-cols-4 gap-2">
-        {[
-          { label: 'Trades',       value: profile.total_trades },
-          { label: 'Real ZK',      value: profile.real_zk_proofs },
-          { label: 'Avg Conf',     value: `${profile.avg_confidence}%` },
-          { label: '0 bytes',      value: 'exposed', highlight: true },
-        ].map(({ label, value, highlight }) => (
-          <div key={label} className="bg-slate-900/60 rounded-lg px-2 py-1.5 text-center">
-            <p className="text-slate-600 text-xs uppercase tracking-wide">{label}</p>
-            <p className={`text-sm font-mono font-bold ${highlight ? 'text-emerald-400' : 'text-white'}`}>{value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-1.5 mt-2.5">
-        {(profile.assets_traded ?? []).map(a => (
-          <span key={a} className={`text-xs font-mono px-2 py-0.5 rounded border ${
-            midnightEnabled ? 'border-violet-700/50 text-violet-400 bg-violet-950/30' : 'border-red-700/50 text-red-400 bg-red-950/30'
-          }`}>{a}</span>
-        ))}
-        <span className="text-slate-600 text-xs self-center ml-1">traded</span>
-      </div>
-    </div>
-  )
-}
-
-// ── MEV Bot simulator — shown when Midnight is OFF ──────────────────────────
-function FrontRunAttack({ trade }) {
-  const [phase, setPhase] = useState(0)
-  // phases: 0=scanning, 1=detected, 2=copying, 3=executed_ahead
   useEffect(() => {
-    const timings = [800, 600, 700]
-    let t = 0
-    const timers = timings.map((delay, i) => {
-      t += delay
-      return setTimeout(() => setPhase(i + 1), t)
-    })
-    return () => timers.forEach(clearTimeout)
-  }, [trade.trade_id])
+    fetchData()
+    const t = setInterval(fetchData, 5000)
+    return () => clearInterval(t)
+  }, [fetchData])
 
-  const lines = [
-    { phase: 0, color: 'text-slate-500', text: '> MEV bot scanning mempool...' },
-    { phase: 1, color: 'text-red-400',   text: `> ⚠️  WHALE SIGNAL DETECTED: ${trade.asset} ${trade.signal?.direction}` },
-    { phase: 2, color: 'text-amber-400', text: `> Copying trade: ${trade.amount} ${trade.asset} @ $${Number(trade.price).toLocaleString()}` },
-    { phase: 3, color: 'text-red-300 font-bold', text: `> ✅ FRONT-RUN EXECUTED — whale order will fill AFTER bot` },
-  ]
-
-  return (
-    <div className="mt-3 bg-red-950/40 border border-red-700/60 rounded-lg p-3 space-y-1">
-      <p className="text-red-400 text-xs font-bold flex items-center gap-1.5 mb-2">
-        <Bot size={12} /> MEV Front-Running Attack
-      </p>
-      {lines.map((l, i) => (
-        <p key={i} className={`font-mono text-xs transition-all duration-300 ${i <= phase ? l.color : 'text-slate-800'}`}>
-          {l.text}
-        </p>
-      ))}
-    </div>
-  )
-}
-
-function TradeCard({ trade, midnightEnabled, isNew }) {
-  const [copied,    setCopied]    = useState(false)
-  const [executing, setExecuting] = useState(false)
-  const [execResult,setExecResult]= useState(null)
-  const [execError, setExecError] = useState(null)
-  const [flash,     setFlash]     = useState(isNew)
-
-  useEffect(() => {
-    if (isNew) {
-      setFlash(true)
-      const t = setTimeout(() => setFlash(false), 1600)
-      return () => clearTimeout(t)
-    }
-  }, [isNew])
-
-  // Copy-to-clipboard (legacy fallback)
-  function handleCopy() {
-    const text = [
-      `Asset: ${trade.asset}`,
-      `Amount: ${trade.amount} ${trade.asset}`,
-      `Price: $${Number(trade.price).toLocaleString()}`,
-      `Signal: ${trade.signal?.direction ?? '—'}`,
-      `Confidence: ${trade.signal?.confidence ?? '—'}%`,
-      `Proof ID: ${trade.proof_id}`,
-      `Timestamp: ${new Date(trade.timestamp).toISOString()}`,
-    ].join('\n')
-    navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  // One-click copy-execute: follower generates their OWN ZK proof for same params
-  async function handleCopyExecute() {
-    if (executing) return
-    setExecuting(true)
-    setExecError(null)
-    setExecResult(null)
-    try {
-      // Call midnight-service to generate a follower ZK proof for the same trade
-      const followerSignal = {
-        direction:     trade.signal?.direction ?? 'BUY',
-        confidence:    trade.signal?.confidence ?? 75,
-        reasoning:     'Copy trade — follower executing mirrored position',
-        risk_level:    trade.signal?.risk_level ?? 'MEDIUM',
-        stop_loss_pct: trade.signal?.stop_loss_pct ?? 8,
-        position_pct:  trade.signal?.position_pct ?? 15,
-      }
-      const proofData = await submitTradeProof(null, {
-        asset:     trade.asset,
-        amount:    trade.amount,
-        price:     trade.price,
-        timestamp: new Date().toISOString(),
-        signal:    followerSignal,
-      }).catch(() => ({ proofHash: null, mode: 'mock' }))
-
-      // Submit to backend as a follower copy trade
-      const execRes = await fetch('/api/trade/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          asset:  trade.asset,
-          amount: trade.amount,
-          price:  trade.price,
-          signal: {
-            direction:     trade.signal?.direction ?? 'BUY',
-            confidence:    trade.signal?.confidence ?? 75,
-            reasoning:     '[COPY TRADE — follower ZK proof]',
-            risk_level:    trade.signal?.risk_level ?? 'MEDIUM',
-            stop_loss_pct: trade.signal?.stop_loss_pct ?? 8,
-            position_pct:  trade.signal?.position_pct ?? 15,
-            encrypted_payload: '[MIDNIGHT ENCRYPTED 🔒]',
-          },
-          proof_override: {
-            proof_hash:     proofData.proofHash,
-            zk_mode:        proofData.mode ?? 'mock',
-            reasoning_hash: proofData.reasoningHash,
-            proof_preimage: proofData.proofPreimage ?? null,
-            proof_size_bytes: proofData.proofSizeBytes ?? null,
-            risk_committed: proofData.riskCommitted ?? null,
-            strategy_version: 2,
-          },
-        }),
-      })
-      if (!execRes.ok) throw new Error(`Backend error: ${execRes.status}`)
-      const result = await execRes.json()
-      setExecResult({ tradeId: result.trade_id, mode: proofData.mode ?? 'mock' })
-    } catch (e) {
-      setExecError(e.message)
-    } finally {
-      setExecuting(false)
-    }
-  }
-
-  const cardBg = midnightEnabled ? 'bg-[#10101f]' : 'bg-[#150808]'
-  const accentBorder = midnightEnabled ? 'border-violet-800/50' : 'border-red-800/50'
-  const flashRing = flash ? (midnightEnabled ? 'ring-2 ring-violet-400 shadow-lg shadow-violet-500/30' : 'ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/20') : ''
-  const ts = new Date(trade.timestamp).toLocaleTimeString()
-
-  return (
-    <div className={`rounded-xl border ${accentBorder} ${cardBg} ${flashRing} p-5 space-y-3 transition-all duration-500`}>
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={`text-sm font-bold px-3 py-1 rounded-lg font-mono ${
-            midnightEnabled
-              ? 'bg-violet-900/50 text-violet-300 border border-violet-700'
-              : 'bg-red-900/50 text-red-300 border border-red-700'
-          }`}>
-            {trade.asset}
-          </span>
-          <span className="text-slate-400 text-xs font-mono">{ts}</span>
-        </div>
-        {midnightEnabled ? (
-          <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800 px-2 py-1 rounded font-medium">
-            <CheckCircle size={11} /> ZK Proof Verified
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 text-xs text-amber-400 bg-amber-950/40 border border-amber-800 px-2 py-1 rounded font-medium">
-            <AlertTriangle size={11} /> Strategy Exposed — Front-Running Risk
-          </span>
-        )}
-      </div>
-
-      {/* Trade details */}
-      <div className="grid grid-cols-3 gap-3 text-sm">
-        <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide">Amount</p>
-          <p className="text-white font-mono font-bold">{trade.amount} {trade.asset}</p>
-        </div>
-        <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide">Price</p>
-          <p className="text-white font-mono font-bold">${Number(trade.price).toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide">Total</p>
-          <p className="text-white font-mono font-bold">
-            ${(trade.amount * trade.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-          </p>
-        </div>
-      </div>
-
-      {/* Strategy section */}
-      <div>
-        <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Strategy</p>
-        {midnightEnabled ? (
-          <div className="bg-violet-950/60 border border-violet-800 rounded-lg p-3 space-y-1.5">
-            <p className="text-violet-300 font-mono text-sm font-bold">
-              {trade.signal?.encrypted_payload || '[MIDNIGHT ENCRYPTED 🔒]'}
-            </p>
-            <p className="text-violet-700 text-xs font-mono">
-              Proof: {trade.proof_id?.slice(0, 24)}...
-            </p>
-            {trade.proof?.reasoning_hash && (
-              <p className="text-violet-800 text-xs font-mono break-all">
-                SHA-256: {trade.proof.reasoning_hash.slice(0, 32)}…
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="bg-red-950/30 border border-red-700 rounded-lg p-3 space-y-1">
-            <p className="text-red-400 text-xs font-bold flex items-center gap-1">
-              <AlertTriangle size={11} /> ⚠️ STRATEGY EXPOSED
-            </p>
-            {trade.signal?.direction && (
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded ${
-                  trade.signal.direction === 'BUY'
-                    ? 'bg-emerald-900/50 text-emerald-300'
-                    : 'bg-red-900/50 text-red-300'
-                }`}>
-                  {trade.signal.direction === 'BUY' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                  {trade.signal.direction}
-                </span>
-                {trade.signal.confidence != null && (
-                  <span className="text-xs text-amber-400 font-mono">
-                    Confidence: {trade.signal.confidence}%
-                  </span>
-                )}
-              </div>
-            )}
-            {trade.signal?.reasoning && (
-              <p className="text-slate-300 text-xs leading-relaxed pt-1">{trade.signal.reasoning}</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Front-running attack animation when Midnight is OFF */}
-      {!midnightEnabled && <FrontRunAttack trade={trade} />}
-
-      {/* Execution result */}
-      {execResult && (
-        <div className="bg-emerald-950/40 border border-emerald-700 rounded-lg px-3 py-2 flex items-center gap-2">
-          <CheckCircle size={13} className="text-emerald-400 shrink-0" />
-          <div className="text-xs font-mono">
-            <span className="text-emerald-300 font-bold">Copy executed!</span>
-            <span className="text-emerald-700 ml-2">{execResult.tradeId?.slice(0, 16)}…</span>
-            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${
-              execResult.mode === 'real' ? 'bg-violet-900/60 text-violet-300' : 'bg-slate-800 text-slate-400'
-            }`}>
-              {execResult.mode === 'real' ? '⚡ ZK real' : '🔵 mock'}
-            </span>
-          </div>
-        </div>
-      )}
-      {execError && (
-        <p className="text-red-400 text-xs bg-red-950/40 border border-red-800 rounded px-3 py-2 font-mono">
-          ✗ {execError}
-        </p>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex gap-2">
-        {/* One-click copy-execute (ZK proof + real submission) */}
-        <button
-          onClick={handleCopyExecute}
-          disabled={executing || !!execResult}
-          className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-            execResult
-              ? 'bg-emerald-800 text-emerald-200'
-              : midnightEnabled
-              ? 'bg-violet-700 hover:bg-violet-600 text-white'
-              : 'bg-red-700 hover:bg-red-600 text-white'
-          }`}
-        >
-          {executing ? (
-            <><Loader2 size={14} className="animate-spin" />Generating ZK proof…</>
-          ) : execResult ? (
-            <><CheckCircle size={14} />Executed!</>
-          ) : midnightEnabled ? (
-            <><Lock size={14} />Copy Trade (ZK Protected)</>
-          ) : (
-            <><AlertTriangle size={14} />Copy Trade (Unprotected)</>
-          )}
-        </button>
-
-        {/* Clipboard fallback */}
-        <button
-          onClick={handleCopy}
-          title="Copy details to clipboard"
-          className="px-3 py-2.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all"
-        >
-          {copied ? <CheckCircle size={14} className="text-emerald-400" /> : <Copy size={14} />}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-export default function FollowerView({ midnightEnabled, trades }) {
-  const cardBg = midnightEnabled ? 'bg-[#10101f]' : 'bg-[#150808]'
-  const accentBorder = midnightEnabled ? 'border-violet-800/60' : 'border-red-800/60'
-  const listRef = useRef(null)
-  const prevCountRef = useRef(trades.length)
-  const [newestId, setNewestId] = useState(null)
-
-  useEffect(() => {
-    if (trades.length > prevCountRef.current && trades.length > 0) {
-      // New trade arrived — flash the newest card and scroll to top
-      setNewestId(trades[0]?.trade_id ?? null)
-      listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-      const t = setTimeout(() => setNewestId(null), 1800)
-      prevCountRef.current = trades.length
-      return () => clearTimeout(t)
-    }
-    prevCountRef.current = trades.length
-  }, [trades.length])
+  // Merge trades with AI signals where reasoning_hash is present
+  const aiTrades = feed.filter(t => t.reasoning_hash)
+  const regularTrades = feed.filter(t => !t.reasoning_hash)
 
   return (
     <div className="space-y-6">
-      {/* Obfuscated whale profile */}
-      <WhaleProfile midnightEnabled={midnightEnabled} />
-
       {/* Header */}
-      <div className={`rounded-xl border ${accentBorder} ${cardBg} p-5`}>
+      <div className="rounded-xl border border-violet-500/[0.1] bg-[#0b0b1c] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(167,139,250,0.04)]">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              👥 Live Trade Feed
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              <Users size={18} className="text-violet-400" />
+              FollowerView — Live Encrypted Trade Feed
             </h2>
             <p className="text-slate-400 text-sm mt-1">
-              {midnightEnabled
-                ? 'Whale strategies are ZK-encrypted — copy trades safely without seeing the edge'
-                : '⚠️ Midnight protection is OFF — strategies are fully visible to all participants'
-              }
+              Copy whale trades. You see the proof — never the strategy.
             </p>
           </div>
-          <span className={`text-xs px-3 py-1.5 rounded-full font-mono font-bold ${
-            midnightEnabled
-              ? 'bg-violet-900/50 text-violet-300 border border-violet-700'
-              : 'bg-red-900/50 text-red-300 border border-red-700'
-          }`}>
-            {trades.length} trades
-          </span>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white bg-[#0f0f22] hover:bg-[#141430] px-3 py-1.5 rounded-lg transition-all"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
         </div>
+        {lastUpdated && (
+          <p className="text-xs text-slate-600 mt-1">Last updated: {ago(lastUpdated)}</p>
+        )}
       </div>
 
-      {/* Trade list */}
-      {trades.length === 0 ? (
-        <div className={`rounded-xl border ${accentBorder} ${cardBg} p-12 text-center`}>
-          <p className="text-4xl mb-3">🐋</p>
-          <p className="text-slate-400">No trades yet. Go to the Whale tab to execute a trade.</p>
-        </div>
-      ) : (
-        <div ref={listRef} className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-1">
-          {trades.map((trade) => (
-            <TradeCard
-              key={trade.trade_id}
-              trade={trade}
-              midnightEnabled={midnightEnabled}
-              isNew={trade.trade_id === newestId}
-            />
-          ))}
-        </div>
+      {/* What followers see */}
+      <div className="rounded-xl border border-violet-500/[0.1] bg-violet-950/15 px-5 py-3 text-sm text-violet-300 space-y-1">
+        <p className="font-bold flex items-center gap-2">
+          <Lock size={13} /> What followers see (Midnight selective disclosure):
+        </p>
+        <ul className="list-disc list-inside text-xs text-slate-400 space-y-0.5 ml-4">
+          <li>Asset pair and settlement timestamp ✓</li>
+          <li>Fairness proof flag (on-chain ZK verification) ✓</li>
+          <li>Reasoning hash — cryptographic commitment to the AI strategy ✓</li>
+          <li className="text-rose-400">Actual reasoning text — <strong>MIDNIGHT ENCRYPTED 🔒</strong></li>
+          <li className="text-rose-400">Trade price and size — <strong>never disclosed</strong></li>
+        </ul>
+      </div>
+
+      {/* AI-triggered trades */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-violet-300 flex items-center gap-2">
+          ⚡ AI-Triggered Trades
+          <span className="bg-violet-900/60 text-violet-400 text-xs px-2 py-0.5 rounded-full font-mono">
+            {aiTrades.length}
+          </span>
+        </h3>
+
+        {aiTrades.length === 0 && (
+          <div className="rounded-xl border border-white/[0.05] bg-[#0b0b1c] p-8 text-center">
+            <p className="text-4xl mb-2">🔒</p>
+            <p className="text-slate-500 text-sm">No AI trades yet — go to WhaleView to generate a signal.</p>
+          </div>
+        )}
+
+        {aiTrades.map((trade) => (
+          <div key={trade.settlement_hash}
+            className="rounded-xl border border-violet-500/[0.1] bg-[#0b0b1c] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <SignalIcon asset_pair={trade.asset_pair} />
+                <span className="text-white font-bold text-sm">{trade.asset_pair}</span>
+                {trade.fairness_proven === 1 && (
+                  <span className="text-xs bg-emerald-950/60 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded-full">
+                    ✓ Fairness Proven
+                  </span>
+                )}
+              </div>
+              <span className="text-slate-500 text-xs font-mono">{ago(trade.timestamp)}</span>
+            </div>
+
+            {/* Encrypted reasoning */}
+            <div className="bg-violet-950/20 rounded-lg px-3 py-2 border border-violet-500/[0.1]">
+              <p className="text-xs text-slate-500 mb-1">AI Reasoning</p>
+              <p className="text-violet-300 text-xs font-mono font-bold tracking-wide">
+                [MIDNIGHT ENCRYPTED 🔒]
+              </p>
+              <p className="text-xs text-slate-600 mt-1 font-mono break-all">
+                commitment: {trade.reasoning_hash?.slice(0, 32)}…
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <p className="text-slate-500">Settlement Hash</p>
+                <p className="font-mono text-slate-400 truncate">{trade.settlement_hash?.slice(0, 20)}…</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Strategy Exposed</p>
+                <p className="font-mono text-emerald-400 font-bold">0 bytes</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* Recent AI signals feed */}
+      {signals.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-400 flex items-center gap-2">
+            📡 Recent Signal Commitments
+          </h3>
+          <div className="rounded-xl border border-white/[0.05] bg-[#0b0b1c] overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left text-slate-500 font-medium px-4 py-2.5">Asset</th>
+                  <th className="text-left text-slate-500 font-medium px-4 py-2.5">Signal</th>
+                  <th className="text-left text-slate-500 font-medium px-4 py-2.5">Confidence</th>
+                  <th className="text-left text-slate-500 font-medium px-4 py-2.5">Reasoning</th>
+                  <th className="text-left text-slate-500 font-medium px-4 py-2.5">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {signals.slice(0, 10).map((s, i) => (
+                  <tr key={s.signal_id} className={i % 2 === 0 ? 'bg-slate-900/20' : ''}>
+                    <td className="px-4 py-2 text-white font-bold">{s.asset}</td>
+                    <td className="px-4 py-2">
+                      <SignalText signal={s.signal} />
+                    </td>
+                    <td className="px-4 py-2 text-slate-300">{s.confidence}%</td>
+                    <td className="px-4 py-2 font-mono text-violet-400 max-w-[140px]">
+                      <span title={s.reasoning_hash}>[ENCRYPTED 🔒]</span>
+                    </td>
+                    <td className="px-4 py-2 text-slate-500">{ago(s.timestamp)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Regular (non-AI) trades */}
+      {regularTrades.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-400">Manual Trades</h3>
+          <div className="space-y-2">
+            {regularTrades.slice(0, 5).map(trade => (
+              <div key={trade.settlement_hash}
+                className="rounded-lg border border-white/[0.05] bg-[#0b0b1c] px-4 py-3 flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-medium">{trade.asset_pair}</span>
+                <span className="font-mono text-slate-500">{trade.settlement_hash?.slice(0, 14)}…</span>
+                <span className="text-slate-600">{ago(trade.timestamp)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   )
+}
+
+function SignalText({ signal }) {
+  const cfg = { BUY: 'text-emerald-400', SELL: 'text-rose-400', HOLD: 'text-amber-400' }
+  return <span className={`font-bold ${cfg[signal] ?? 'text-slate-300'}`}>{signal}</span>
 }

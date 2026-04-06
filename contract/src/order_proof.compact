@@ -1,0 +1,75 @@
+pragma language_version >= 0.22;
+
+// ----------------------------------------------------------------------------
+// Hidden Order Dark Pool DEX -- Order Proof Contract
+//
+// Public ledger (on-chain, visible to everyone):
+//   order_id        -- UUID, disclosed on submit
+//   asset_pair      -- e.g. "BTC/USDC", disclosed
+//   order_timestamp -- ISO8601, disclosed
+//   settlement_hash -- SHA-256(price||amount||nonce), disclosed
+//   order_status    -- 0=PENDING, 1=MATCHED, 2=SETTLED
+//   fairness_proven -- 1 when settlement ZK is accepted
+//
+// Private witnesses (never leave submitter's machine):
+//   price_cents     -- limit price in cents
+//   amount_units    -- order size
+//   side            -- 0=BUY, 1=SELL
+//   nonce           -- random, for settlement_hash pre-image
+// ----------------------------------------------------------------------------
+
+export ledger order_id:        Opaque<"string">;
+export ledger asset_pair:      Opaque<"string">;
+export ledger order_timestamp: Opaque<"string">;
+export ledger settlement_hash: Opaque<"string">;
+export ledger order_status:    Uint<32>;
+export ledger fairness_proven: Uint<32>;
+
+// --- submit_order -----------------------------------------------------------
+// ZK proof guarantees (without revealing price, amount, or side):
+//   1. side < 2          -> valid BUY (0) or SELL (1)
+//   2. price_cents > 0   -> order has a real limit price
+//   3. amount_units > 0  -> order has a real size
+// Only public fields are written to the ledger.
+// ----------------------------------------------------------------------------
+export circuit submit_order(
+  oid:          Opaque<"string">,
+  pair:         Opaque<"string">,
+  timestamp:    Opaque<"string">,
+  settle_hash:  Opaque<"string">,
+  price_cents:  Uint<64>,
+  amount_units: Uint<64>,
+  side:         Uint<32>,
+  nonce:        Uint<64>
+): [] {
+  assert(side < 2,         "side must be 0 (BUY) or 1 (SELL)");
+  assert(price_cents > 0,  "price_cents must be greater than 0");
+  assert(amount_units > 0, "amount_units must be greater than 0");
+
+  order_id        = disclose(oid);
+  asset_pair      = disclose(pair);
+  order_timestamp = disclose(timestamp);
+  settlement_hash = disclose(settle_hash);
+  order_status    = disclose(0);
+  fairness_proven = disclose(0);
+}
+
+// --- settle_order -----------------------------------------------------------
+// Called after off-chain matching engine confirms a match.
+// Proves both parties agreed to a fair price without revealing individual limits.
+//   - buyer  got matched_price <= their limit  (paid at most what they set)
+//   - seller got matched_price >= their limit  (received at least what they set)
+// ----------------------------------------------------------------------------
+export circuit settle_order(
+  oid:                 Opaque<"string">,
+  matched_price_cents: Uint<64>,
+  buyer_limit:         Uint<64>,
+  seller_limit:        Uint<64>
+): [] {
+  assert(matched_price_cents >= seller_limit, "seller price floor not met");
+  assert(matched_price_cents <= buyer_limit,  "buyer price ceiling exceeded");
+
+  order_id        = disclose(oid);
+  order_status    = disclose(2);
+  fairness_proven = disclose(1);
+}

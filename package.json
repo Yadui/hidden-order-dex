@@ -1,8 +1,18 @@
 {
-  "name": "alphashield-root",
+  "name": "hidden-order-dex",
   "version": "1.0.0",
   "type": "module",
   "private": true,
+  "scripts": {
+    "compile:contract": "compact compile contract/src/order_proof.compact contract/dist/order_proof",
+    "compile:contract:fast": "compact compile --skip-zk contract/src/order_proof.compact contract/dist/order_proof",
+    "deploy:contract": "node scripts/deploy-contract.mjs",
+    "generate:seed": "node -e \"import('@midnight-ntwrk/wallet-sdk-hd').then(m => console.log(m.generateMnemonic())).catch(e => console.error(e))\"",
+    "test:zk": "node scripts/e2e-zk-test.mjs",
+    "test:matching": "python3 scripts/test_matching.py",
+    "demo": "bash scripts/demo.sh",
+    "fetch:coins": "node scripts/fetch-coin-assets.mjs"
+  },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "^0.15.0"
   }

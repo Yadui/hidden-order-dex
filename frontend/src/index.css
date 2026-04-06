@@ -10,8 +10,34 @@
     min-height: 100vh;
     width: 100%;
     font-family: 'Inter', system-ui, sans-serif;
-    background-color: #0a0a0f;
+    background-color: #05050e;
     color: #e2e8f0;
     -webkit-font-smoothing: antialiased;
   }
+}
+
+/* DEX card — dark pool panel */
+.dex-card {
+  background: #0b0b1c;
+  border: 1px solid rgba(139, 92, 246, 0.09);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.04),
+    0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* DEX callout — info/privacy highlight box */
+.dex-callout {
+  background: rgba(88, 28, 135, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 12px;
+}
+
+/* Subtle purple glow pulse on interactive cards */
+.dex-card-hover:hover {
+  border-color: rgba(139, 92, 246, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.06),
+    0 4px 32px rgba(109, 40, 217, 0.1);
+  transition: all 0.2s ease;
 }

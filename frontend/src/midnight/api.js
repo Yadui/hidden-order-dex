@@ -1,42 +1,33 @@
-// ─── AlphaShield Contract API (browser layer) ────────────────────────────────
+// ─── HiddenOrder DEX Contract API (browser layer) ─────────────────────────────
 // The browser cannot run the Midnight SDK directly (WASM + Node.js deps),
-// so this module calls the midnight-service (Node.js, port 5001) which holds
+// so this module calls the midnight-service (Node.js, port 3007) which holds
 // the real @midnight-ntwrk packages.
 //
 // Flow:
-//   WhaleView → submitTradeProof() → POST midnight-service:5001/submit-proof
-//     → Midnight SDK generates ZK proof via local proof server (6300)
+//   TraderView → submitOrderProof() → POST midnight-service:3007/submit-proof
+//     → Midnight SDK generates ZK proof via local proof server (6301)
 //     → Returns { proofHash, txHash, contractAddress, mode: 'real'|'mock' }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MIDNIGHT_SERVICE = import.meta.env.VITE_MIDNIGHT_SERVICE_URL ?? 'http://localhost:5001'
-
-export const MIN_CONFIDENCE_THRESHOLD = 70
+const MIDNIGHT_SERVICE = import.meta.env.VITE_MIDNIGHT_SERVICE_URL ?? 'http://localhost:3007'
 
 /**
- * Submit a trade proof — calls midnight-service which runs the real ZK SDK.
+ * Submit an order proof — calls midnight-service which runs the real ZK SDK.
  * Falls back to a client-side mock if the service is unreachable.
  *
- * @param {object|null} _walletApi  — Lace wallet API (reserved for future browser-side signing)
- * @param {{ asset, amount, price, timestamp, signal }} tradeData
- * @returns {Promise<{ proofHash, contractAddress, txHash, reasoningHash, mode }>}
+ * @param {object|null} _walletApi   — Lace wallet API (reserved for future browser-side signing)
+ * @param {{ order_id, asset_pair, side, price_cents, amount_units, timestamp }} orderData
+ * @returns {Promise<{ proofHash, contractAddress, txHash, settlementHash, mode }>}
  */
-export async function submitTradeProof(_walletApi, tradeData) {
-  const { asset, amount, price, timestamp, signal } = tradeData
-
-  if (signal.confidence < MIN_CONFIDENCE_THRESHOLD) {
-    throw new Error(
-      `Signal confidence ${signal.confidence}% is below the ZK threshold of ${MIN_CONFIDENCE_THRESHOLD}%. ` +
-      'Generate a stronger signal before executing.'
-    )
-  }
+export async function submitOrderProof(_walletApi, orderData) {
+  const { order_id, asset_pair, side, price_cents, amount_units, timestamp } = orderData
 
   // ── Try the Midnight service (Node.js + real SDK) ─────────────────────────
   try {
     const res = await fetch(`${MIDNIGHT_SERVICE}/submit-proof`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ asset, amount, price, timestamp, signal }),
+      body: JSON.stringify({ order_id, asset_pair, side, price_cents, amount_units, timestamp }),
       signal: AbortSignal.timeout(90_000),  // ZK proof can take up to 60s
     })
     if (!res.ok) {
@@ -46,17 +37,17 @@ export async function submitTradeProof(_walletApi, tradeData) {
     return await res.json()
   } catch (err) {
     if (err.name === 'AbortError') throw new Error('ZK proof generation timed out (>90s)')
-    console.warn('[AlphaShield] Midnight service unreachable, using client mock:', err.message)
+    console.warn('[HiddenOrderDEX] Midnight service unreachable, using client mock:', err.message)
   }
 
   // ── Client-side mock fallback ─────────────────────────────────────────────
-  return generateClientMock(tradeData)
+  return generateClientMock(orderData)
 }
 
-async function generateClientMock({ asset, amount, timestamp, signal }) {
-  const reasoningHash = await sha256(signal?.reasoning ?? '')
-  const proofHash = await sha256(`${asset}${amount}${timestamp}MIDNIGHT_ZK`)
-  return { proofHash, contractAddress: null, txHash: null, reasoningHash, mode: 'mock' }
+async function generateClientMock({ order_id, asset_pair, timestamp }) {
+  const settlementHash = await sha256(`${order_id}${asset_pair}${timestamp ?? ''}`)
+  const proofHash = await sha256(`${order_id}${asset_pair}MIDNIGHT_ZK`)
+  return { proofHash, contractAddress: null, txHash: null, settlementHash, mode: 'mock' }
 }
 
 async function sha256(text) {
@@ -77,10 +68,11 @@ export async function checkMidnightService() {
     const data = await res.json()
     return {
       serviceUp: true,
-      proofServerUp: data.proof_server === 'reachable',
+      proofServerUp: data.zk_mode === 'real',
       contractCompiled: data.contract_compiled,
       networkId: data.network_id,
       zkMode: data.zk_mode ?? 'mock',
+      contractAddress: data.contract_address ?? null,
     }
   } catch {
     return { serviceUp: false, proofServerUp: false }

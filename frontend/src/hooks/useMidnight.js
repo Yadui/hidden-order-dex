@@ -12,14 +12,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { isLaceInstalled, connectLaceWallet, getWalletAddress } from '../midnight/wallet.js'
-import { submitTradeProof, checkMidnightService } from '../midnight/api.js'
+import { submitOrderProof, checkMidnightService } from '../midnight/api.js'
 
 export function useMidnight() {
   const [walletStatus, setWalletStatus] = useState('disconnected')
   const [walletAddress, setWalletAddress] = useState(null)
   const [walletError, setWalletError]   = useState(null)
   const [serviceStatus, setServiceStatus] = useState({
-    serviceUp: false, proofServerUp: false, contractCompiled: false, networkId: null, zkMode: 'mock',
+    serviceUp: false, proofServerUp: false, contractCompiled: false, networkId: null, zkMode: 'mock', contractAddress: null,
   })
   const [zkMode, setZkMode] = useState(null) // 'real' | 'mock'
   const walletApiRef = useRef(null)
@@ -64,11 +64,11 @@ export function useMidnight() {
    * Generate a ZK proof and submit on-chain.
    * Falls back to mock if Midnight stack is unreachable.
    *
-   * @param {object} tradeData — { asset, amount, price, timestamp, signal }
-   * @returns {Promise<object>} result from submitTradeProof()
+   * @param {object} orderData — { order_id, asset_pair, side, price_cents, amount_units, timestamp }
+   * @returns {Promise<object>} result from submitOrderProof()
    */
-  const submitProof = useCallback(async (tradeData) => {
-    const result = await submitTradeProof(walletApiRef.current, tradeData)
+  const submitProof = useCallback(async (orderData) => {
+    const result = await submitOrderProof(walletApiRef.current, orderData)
     setZkMode(result.mode)
     return result
   }, [])
@@ -86,6 +86,7 @@ export function useMidnight() {
     contractCompiled: serviceStatus.contractCompiled,
     networkId: serviceStatus.networkId,
     serviceZkMode: serviceStatus.zkMode,
+    contractAddress: serviceStatus.contractAddress,
     // ZK submission
     submitProof,
     zkMode,

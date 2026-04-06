@@ -4,7 +4,7 @@
 //
 // The wallet:
 //   · holds the user's private keys
-//   · runs the proof server locally (port 6300)
+//   · runs the proof server locally (port 6301)
 //   · signs and submits transactions to Midnight Network
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export async function connectLaceWallet() {
   if (!isLaceInstalled()) {
     throw new Error(
       'Lace wallet not found. Install the Lace browser extension and ' +
-      'enable Midnight in Settings → Midnight → Proof Server (localhost:6300).'
+      'enable Midnight in Settings → Midnight → Proof Server (localhost:6301).'
     )
   }
 
@@ -59,13 +59,13 @@ export async function getWalletAddress(walletApi) {
 }
 
 /**
- * Check proof server health at localhost:6300.
+ * Check proof server health at localhost:6301.
  * Returns true if reachable, false otherwise.
  * @returns {Promise<boolean>}
  */
 export async function checkProofServer() {
   try {
-    const res = await fetch('http://localhost:6300/health', {
+    const res = await fetch('http://localhost:6301/health', {
       signal: AbortSignal.timeout(2000),
     })
     return res.ok
