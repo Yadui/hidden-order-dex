@@ -139,7 +139,7 @@ function TradeCard({ trade, midnightEnabled, isNew }) {
     setExecResult(null)
     try {
       // Call midnight-service to generate a follower ZK proof for the same trade
-      const proofRes = await fetch('http://localhost:3006/submit-proof', {
+      const proofRes = await fetch('http://localhost:5001/submit-proof', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,15 +1,15 @@
 // ─── AlphaShield Contract API (browser layer) ────────────────────────────────
 // The browser cannot run the Midnight SDK directly (WASM + Node.js deps),
-// so this module calls the midnight-service (Node.js, port 3006) which holds
+// so this module calls the midnight-service (Node.js, port 5001) which holds
 // the real @midnight-ntwrk packages.
 //
 // Flow:
-//   WhaleView → submitTradeProof() → POST midnight-service:3006/submit-proof
+//   WhaleView → submitTradeProof() → POST midnight-service:5001/submit-proof
 //     → Midnight SDK generates ZK proof via local proof server (6300)
 //     → Returns { proofHash, txHash, contractAddress, mode: 'real'|'mock' }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MIDNIGHT_SERVICE = import.meta.env.VITE_MIDNIGHT_SERVICE_URL ?? 'http://localhost:3006'
+const MIDNIGHT_SERVICE = import.meta.env.VITE_MIDNIGHT_SERVICE_URL ?? 'http://localhost:5001'
 
 export const MIN_CONFIDENCE_THRESHOLD = 70
 

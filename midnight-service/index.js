@@ -7,8 +7,8 @@
 //   where those modules are available natively.
 //
 // Architecture:
-//   Browser (frontend:3005)
-//     → calls this service (midnight-service:3006)
+//   Browser (frontend:3001)
+//     → calls this service (midnight-service:5001)
 //   This service
 //     → @midnight-ntwrk/* SDK (WASM, Node.js)
 //     → Proof server (localhost:6300) — always local, privacy requirement
@@ -337,7 +337,7 @@ async function checkProofServer() {
   }
 }
 
-const PORT = process.env.PORT ?? 3006
+const PORT = process.env.PORT ?? 5001
 app.listen(PORT, () => {
   console.log(`[AlphaShield] Midnight service running on http://localhost:${PORT}`)
   console.log(`[AlphaShield] Network: ${MIDNIGHT_ENV} (${netConfig.networkId})`)
