@@ -19,8 +19,12 @@ dist/
 .dist/
 *.local
 
-# Vite
+# Vite build output
 frontend/dist/
+
+# Compact contract — keep compiled artifacts (prover/verifier keys, ZKIR) so
+# judges can run real ZK proofs without installing the compact CLI.
+!contract/dist/
 
 # Environment files
 .env

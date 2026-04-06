@@ -92,7 +92,7 @@ const [runtimeMod, ledger, contractMod, zkir, { setNetworkId }] = await Promise.
   import(resolve(SVC_DIR, 'node_modules/@midnight-ntwrk/ledger-v8/midnight_ledger_wasm_fs.js')),
   import(resolve(ROOT, 'contract/dist/order_proof/contract/index.js')),
   import(resolve(SVC_DIR, 'node_modules/@midnight-ntwrk/zkir-v2/midnight_zkir_wasm_fs.js')),
-  import(resolve(SVC_DIR, 'node_modules/@midnight-ntwrk/midnight-js-network-id/dist/index.js')),
+  import(resolve(SVC_DIR, 'node_modules/@midnight-ntwrk/midnight-js-network-id/dist/index.mjs')),
 ])
 
 setNetworkId(netCfg.networkId)
@@ -144,7 +144,7 @@ function makeKmProvider(circuitId) {
 
 // ── ZKConfigProvider ──────────────────────────────────────────────────────────
 const { ZKConfigProvider } = await import(
-  resolve(SVC_DIR, 'node_modules/@midnight-ntwrk/midnight-js-types/dist/index.js')
+  resolve(SVC_DIR, 'node_modules/@midnight-ntwrk/midnight-js-types/dist/index.mjs')
 )
 class FileZKConfigProvider extends ZKConfigProvider {
   async getZKIR(circuitId) {
