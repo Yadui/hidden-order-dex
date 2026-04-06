@@ -31,6 +31,19 @@ const TICKER_BY_CGID = {
 const BINANCE_INTERVAL = { 1: '1h', 7: '1d', 30: '1d', 90: '1d' }
 const BINANCE_LIMIT    = { 1: 24,   7: 7,    30: 30,   90: 90   }
 
+// ── Static coin logos — reliable fallback when CoinGecko image is null ───────
+// Uses CoinGecko's public asset CDN (no auth needed, stable URLs)
+export const COIN_LOGO = {
+  bitcoin:       'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+  ethereum:      'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+  solana:        'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+  ripple:        'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+  'avalanche-2': 'https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png',
+  chainlink:     'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
+  cardano:       'https://assets.coingecko.com/coins/images/975/small/cardano.png',
+  polkadot:      'https://assets.coingecko.com/coins/images/12171/small/polkadot.png',
+}
+
 // ── Helper ────────────────────────────────────────────────────────────────────
 async function tryFetch(url, opts = {}) {
   const res = await fetch(url, { signal: AbortSignal.timeout(10000), ...opts })
@@ -137,16 +150,33 @@ export async function fetchMarketsData(coinIds, tickerMap) {
   if (symbols.length > 0) {
     try {
       const encoded = encodeURIComponent(JSON.stringify(symbols))
-      const data = await tryFetch(
-        `https://api.binance.com/api/v3/ticker/24hr?symbols=${encoded}`
-      )
+      // Fetch 24hr stats + 7D daily klines for every coin in parallel
+      const [ticker24Data, ...klineResults] = await Promise.all([
+        tryFetch(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encoded}`),
+        ...Object.keys(tickerMap)
+          .filter(cgId => BINANCE_SYMBOL[tickerMap[cgId]])
+          .map(cgId => {
+            const sym = BINANCE_SYMBOL[tickerMap[cgId]]
+            return tryFetch(
+              `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=1d&limit=7`
+            ).catch(() => null)
+          }),
+      ])
+      // Build kline lookup: BTCUSDT → sparkline prices
+      const sparklineBySymbol = {}
+      const cgIdOrder = Object.keys(tickerMap).filter(id => BINANCE_SYMBOL[tickerMap[id]])
+      cgIdOrder.forEach((cgId, i) => {
+        const sym    = BINANCE_SYMBOL[tickerMap[cgId]]
+        const klines = klineResults[i]
+        if (klines?.length) sparklineBySymbol[sym] = klines.map(k => parseFloat(k[4]))
+      })
       // Build reverse lookup: BTCUSDT → { cgId, ticker }
       const bySymbol = {}
       for (const [cgId, ticker] of Object.entries(tickerMap)) {
         const sym = BINANCE_SYMBOL[ticker]
         if (sym) bySymbol[sym] = { cgId, ticker }
       }
-      const coins = data
+      const coins = ticker24Data
         .map((item, i) => {
           const mapped = bySymbol[item.symbol]
           if (!mapped) return null
@@ -156,14 +186,14 @@ export async function fetchMarketsData(coinIds, tickerMap) {
             id:                                    mapped.cgId,
             symbol:                                mapped.ticker.toLowerCase(),
             name:                                  mapped.ticker,
-            image:                                 null,
+            image:                                 COIN_LOGO[mapped.cgId] ?? null,
             current_price:                         price,
             price_change_percentage_1h_in_currency: null,
             price_change_percentage_24h:           change24,
             price_change_percentage_7d_in_currency: null,
             market_cap:                            null,
             total_volume:                          parseFloat(item.quoteVolume),
-            sparkline_in_7d:                       { price: [] },
+            sparkline_in_7d:                       { price: sparklineBySymbol[item.symbol] ?? [] },
             market_cap_rank:                       i + 1,
             _fallback:                             true,
           }
@@ -196,7 +226,7 @@ export async function fetchMarketsData(coinIds, tickerMap) {
           id:                                    cgId,
           symbol:                                ticker.toLowerCase(),
           name:                                  d.name ?? ticker,
-          image:                                 null,
+          image:                                 COIN_LOGO[cgId] ?? null,
           current_price:                         parseFloat(d.priceUsd),
           price_change_percentage_1h_in_currency: null,
           price_change_percentage_24h:           parseFloat(d.changePercent24Hr),

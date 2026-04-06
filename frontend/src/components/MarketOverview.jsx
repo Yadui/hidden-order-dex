@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, RefreshCw, Search } from 'lucide-react'
-import { fetchMarketsData, fetchCoinChart, searchCoins, fetchCoinById, SOURCE_LABEL } from '../utils/priceFeeds.js'
+import { fetchMarketsData, fetchCoinChart, searchCoins, fetchCoinById, SOURCE_LABEL, COIN_LOGO } from '../utils/priceFeeds.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COIN_IDS   = 'bitcoin,ethereum,solana,ripple,avalanche-2,chainlink,cardano,polkadot'
@@ -307,8 +307,8 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
       >
         {/* Header */}
         <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-800 flex-shrink-0">
-          {coin.image && (
-            <img src={coin.image} alt={coin.name} className="w-10 h-10 rounded-full" />
+          {(coin.image || COIN_LOGO[coin.id]) && (
+            <img src={coin.image ?? COIN_LOGO[coin.id]} alt={coin.name} className="w-10 h-10 rounded-full" />
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
@@ -668,8 +668,8 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
 
               {/* Coin name */}
               <div className="flex items-center gap-2 min-w-0">
-                {coin.image
-                  ? <img src={coin.image} alt={coin.name}
+                {(coin.image || COIN_LOGO[coin.id])
+                  ? <img src={coin.image ?? COIN_LOGO[coin.id]} alt={coin.name}
                       className="w-6 h-6 rounded-full flex-shrink-0" />
                   : <div className="w-6 h-6 rounded-full bg-slate-700 flex-shrink-0" />
                 }
