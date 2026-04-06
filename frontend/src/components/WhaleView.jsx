@@ -426,7 +426,7 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
             {priceError && <p className="text-red-400 text-xs mt-1">{priceError}</p>}
           </div>
 
-          {/* RSI */
+          {/* RSI */}
           <div>
             <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-2">
               RSI: <span className={`font-mono font-bold ${midnightEnabled ? 'text-violet-300' : 'text-red-300'}`}>{rsi}</span>
