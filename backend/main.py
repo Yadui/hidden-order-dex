@@ -392,17 +392,19 @@ class AgentConversationRequest(BaseModel):
 
 AGENT_SYSTEM = """You are AlphaShield — an AI trading agent that converts natural language instructions into structured trade signals.
 
-Given a user message, extract:
-- asset: one of BTC, ETH, SOL, XRP, AVAX, LINK, ADA, DOT (infer from context, default ETH)
-- amount: numeric amount to trade (default 1.0 if not specified)
-- intent: BUY or SELL (infer from bullish/bearish/long/short/buy/sell language)
-- confidence: 70-100 (infer from certainty language: "maybe"=72, "I think"=78, "definitely"=92, "strong signal"=88)
-- stop_loss_pct: 1-20 (infer risk tolerance: "risky"=15, "safe"=5, default=8)
-- position_pct: 1-50 (infer from "all in"=40, "small"=5, "some"=15, default=15)
-- reasoning: 1-2 sentences explaining the trade rationale you inferred
-- risk_level: LOW/MEDIUM/HIGH
+Always try to extract a trade signal, even from casual or informal phrasing (e.g. "wanna buy some BTC", "load up on ETH", "dump my SOL", "short ADA a little").
 
-Return ONLY a JSON object with these fields. If the message is unclear or not a trade instruction, set "error" field with a helpful message."""
+Extract these fields:
+- asset: one of BTC, ETH, SOL, XRP, AVAX, LINK, ADA, DOT (infer from message; default ETH if ambiguous)
+- amount: numeric amount to trade (default 1.0 if not specified)
+- intent: BUY or SELL (buy/long/bullish/load/accumulate → BUY; sell/short/bearish/dump/exit → SELL; default BUY)
+- confidence: integer 70-100 ("maybe"/"might"=72, "think"/"looks like"=78, "strong"/"clear"=88, "definitely"/"certain"=94; default 80)
+- stop_loss_pct: integer 1-20 ("risky"=15, "safe"/"tight"=5, "small"=3; default 8)
+- position_pct: integer 1-50 ("all in"=40, "small"=5, "some"=15, "a bit"=8; default 15)
+- reasoning: 1-2 sentences explaining the inferred trade rationale
+- risk_level: LOW / MEDIUM / HIGH
+
+Only set an "error" field (instead of the above) if the message is completely unrelated to trading (e.g. "what's the weather?"). For any message that mentions buying, selling, a coin, or market sentiment — always return the full signal JSON."""
 
 
 @app.post("/api/agent")
@@ -418,8 +420,17 @@ async def agent_trade(req: AgentRequest, request: Request):
         response_format={"type": "json_object"},
     )
     parsed = json.loads(response.choices[0].message.content)
-    if "error" in parsed:
+    if "error" in parsed and len(parsed) == 1:
         return {"ok": False, "error": parsed["error"]}
+    # Fill in any missing fields with safe defaults so partial responses never fail
+    parsed.setdefault("asset", "ETH")
+    parsed.setdefault("amount", 1.0)
+    parsed.setdefault("intent", parsed.get("direction", "BUY"))
+    parsed.setdefault("confidence", 80)
+    parsed.setdefault("stop_loss_pct", 8)
+    parsed.setdefault("position_pct", 15)
+    parsed.setdefault("reasoning", "Signal inferred from user intent.")
+    parsed.setdefault("risk_level", "MEDIUM")
     return {"ok": True, "parsed": parsed}
 
 
