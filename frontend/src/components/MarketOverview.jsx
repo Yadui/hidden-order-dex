@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { X, RefreshCw } from 'lucide-react'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const COIN_IDS   = 'bitcoin,ethereum,solana,matic-network'
-const TICKER_MAP = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', 'matic-network': 'MATIC' }
+const COIN_IDS   = 'bitcoin,ethereum,solana,matic-network,avalanche-2,chainlink,cardano,polkadot'
+const TICKER_MAP = {
+  bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', 'matic-network': 'MATIC',
+  'avalanche-2': 'AVAX', chainlink: 'LINK', cardano: 'ADA', polkadot: 'DOT',
+}
 const TIMEFRAMES = [
   { label: '24H', days: 1  },
   { label: '7D',  days: 7  },

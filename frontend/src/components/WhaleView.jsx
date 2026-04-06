@@ -3,13 +3,17 @@ import { TrendingUp, TrendingDown, Zap, Lock, AlertTriangle, CheckCircle2, Cpu, 
 import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import MarketOverview from './MarketOverview.jsx'
 
-const ASSETS = ['ETH', 'BTC', 'SOL', 'MATIC']
+const ASSETS = ['ETH', 'BTC', 'SOL', 'MATIC', 'AVAX', 'LINK', 'ADA', 'DOT']
 
 const COINGECKO_IDS = {
   ETH:  'ethereum',
   BTC:  'bitcoin',
   SOL:  'solana',
   MATIC:'matic-network',
+  AVAX: 'avalanche-2',
+  LINK: 'chainlink',
+  ADA:  'cardano',
+  DOT:  'polkadot',
 }
 
 // ── RSI-14 computed from daily closing prices (Wilder smoothing) ────────────
@@ -274,12 +278,12 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
           {/* Asset */}
           <div>
             <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 block">Asset</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {ASSETS.map((a) => (
                 <button
                   key={a}
                   onClick={() => setAsset(a)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+                  className={`px-3 py-2 rounded-lg text-sm font-bold transition-all min-w-[3.5rem] ${
                     asset === a
                       ? midnightEnabled ? 'bg-violet-700 text-white' : 'bg-red-700 text-white'
                       : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
