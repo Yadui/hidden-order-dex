@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, RefreshCw } from 'lucide-react'
+import { fetchMarketsData, fetchCoinChart, SOURCE_LABEL } from '../utils/priceFeeds.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COIN_IDS   = 'bitcoin,ethereum,solana,matic-network,avalanche-2,chainlink,cardano,polkadot'
@@ -215,30 +216,26 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
   const [timeframe,    setTimeframe]    = useState('7D')
   const [chartData,    setChartData]    = useState(null)
   const [chartLoading, setChartLoading] = useState(false)
+  const [chartSource,  setChartSource]  = useState(null)
   const cacheRef = useRef({})
 
   async function loadChart(tf) {
-    const days    = TIMEFRAMES.find(t => t.label === tf)?.days ?? 7
+    const days     = TIMEFRAMES.find(t => t.label === tf)?.days ?? 7
     const cacheKey = `${coin.id}-${tf}`
     if (cacheRef.current[cacheKey]) {
-      setChartData(cacheRef.current[cacheKey])
+      setChartData(cacheRef.current[cacheKey].data)
+      setChartSource(cacheRef.current[cacheKey].source)
       return
     }
     setChartLoading(true)
     try {
-      const interval = days === 1 ? '' : '&interval=daily'
-      const r = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${coin.id}/market_chart?vs_currency=usd&days=${days}${interval}`,
-        { signal: AbortSignal.timeout(12000) }
-      )
-      if (!r.ok) return
-      const d    = await r.json()
-      const data = {
-        prices:     d.prices.map(([, p]) => p),
-        timestamps: d.prices.map(([t])   => t),
+      const ticker = TICKER_MAP[coin.id] ?? coin.symbol?.toUpperCase()
+      const result = await fetchCoinChart(coin.id, ticker, days)
+      if (result) {
+        cacheRef.current[cacheKey] = result
+        setChartData({ prices: result.prices, timestamps: result.timestamps })
+        setChartSource(result.source)
       }
-      cacheRef.current[cacheKey] = data
-      setChartData(data)
     } catch { /* ignore */ } finally {
       setChartLoading(false)
     }
@@ -254,8 +251,9 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
         prices:     spPrices,
         timestamps: spPrices.map((_, i) => now - (count - 1 - i) * 3600 * 1000),
       }
-      cacheRef.current[`${coin.id}-7D`] = data
+      cacheRef.current[`${coin.id}-7D`] = { data, source: 'coingecko' }
       setChartData(data)
+      setChartSource('coingecko')
     } else {
       loadChart('7D')
     }
@@ -315,7 +313,7 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
           {/* Chart area */}
           <div className="px-5 pt-4">
             {/* Timeframe tabs */}
-            <div className="flex gap-1 mb-3">
+            <div className="flex items-center gap-1 mb-3">
               {TIMEFRAMES.map(tf => (
                 <button
                   key={tf.label}
@@ -331,6 +329,11 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
               ))}
               {chartLoading && (
                 <span className="ml-2 text-xs text-slate-600 font-mono self-center">loading…</span>
+              )}
+              {chartSource && !chartLoading && (
+                <span className={`ml-auto text-xs font-mono ${SOURCE_LABEL[chartSource]?.color ?? 'text-slate-500'}`}>
+                  via {SOURCE_LABEL[chartSource]?.text ?? chartSource}
+                </span>
               )}
             </div>
 
@@ -391,18 +394,14 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
   const [loading,     setLoading]     = useState(true)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [selectedCoin,setSelectedCoin]= useState(null)
+  const [dataSource,  setDataSource]  = useState(null)
 
   async function fetchMarkets() {
     try {
-      const r = await fetch(
-        `https://api.coingecko.com/api/v3/coins/markets` +
-        `?vs_currency=usd&ids=${COIN_IDS}&order=market_cap_desc` +
-        `&sparkline=true&price_change_percentage=1h,24h,7d`,
-        { signal: AbortSignal.timeout(12000) }
-      )
-      if (!r.ok) return
-      setCoins(await r.json())
-      setLastUpdated(new Date())
+      const { coins: data, source } = await fetchMarketsData(COIN_IDS, TICKER_MAP)
+      setCoins(data)
+      setDataSource(source)
+      if (data.length > 0) setLastUpdated(new Date())
     } catch { /* ignore */ } finally {
       setLoading(false)
     }
@@ -433,7 +432,14 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800/60">
           <div className="flex items-center gap-2">
             <span className="text-white text-sm font-bold uppercase tracking-wide">Market Overview</span>
-            <span className="text-emerald-500 text-xs font-mono font-bold">● LIVE</span>
+            {dataSource && dataSource !== 'error' && (
+              <span className={`text-xs font-mono font-bold ${SOURCE_LABEL[dataSource]?.color ?? 'text-slate-400'}`}>
+                ● {SOURCE_LABEL[dataSource]?.text ?? dataSource}
+              </span>
+            )}
+            {dataSource === 'error' && (
+              <span className="text-red-400 text-xs font-mono">⚠ all sources failed</span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {lastUpdated && (
@@ -521,8 +527,8 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
               </span>
 
               {/* 7d % */}
-              <span className={`text-xs font-mono font-bold text-right ${is7dPos ? 'text-emerald-400' : 'text-red-400'}`}>
-                {is7dPos ? '▲' : '▼'} {Math.abs(change7d ?? 0).toFixed(2)}%
+              <span className={`text-xs font-mono font-bold text-right ${change7d == null ? 'text-slate-600' : is7dPos ? 'text-emerald-400' : 'text-red-400'}`}>
+                {change7d == null ? '—' : `${is7dPos ? '▲' : '▼'} ${Math.abs(change7d).toFixed(2)}%`}
               </span>
 
               {/* 24h Volume */}

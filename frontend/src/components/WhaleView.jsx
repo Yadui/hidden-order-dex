@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Zap, Lock, AlertTriangle, CheckCircle2, Cpu, Loader2, RotateCcw, RefreshCw } from 'lucide-react'
 import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import MarketOverview from './MarketOverview.jsx'
+import { fetchAssetData, SOURCE_LABEL } from '../utils/priceFeeds.js'
 
 const ASSETS = ['ETH', 'BTC', 'SOL', 'MATIC', 'AVAX', 'LINK', 'ADA', 'DOT']
 
@@ -80,45 +81,33 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
   const [liveRsi,        setLiveRsi]        = useState(null)
   const [liveVolume,     setLiveVolume]     = useState(null)
   const [fetchingPrice,  setFetchingPrice]  = useState(false)
+  const [priceSource,    setPriceSource]    = useState(null)
 
-  // ── Live market data (CoinGecko, no API key needed) ───────────────────────
-  // Fetches current price, RSI-14 (from daily OHLC), and 24h volume change %
+  // ── Live market data (multi-source fallback: CoinGecko → Binance → CoinCap) ──
   async function fetchLivePrice(a) {
     setFetchingPrice(true)
     try {
-      const cgId = COINGECKO_IDS[a]
-      // Parallel: exact current price + 14-day market chart for RSI & volume
-      const [priceRes, chartRes] = await Promise.all([
-        fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`,
-          { signal: AbortSignal.timeout(8000) }),
-        fetch(`https://api.coingecko.com/api/v3/coins/${cgId}/market_chart?vs_currency=usd&days=14&interval=daily`,
-          { signal: AbortSignal.timeout(8000) }),
-      ])
+      const cgId   = COINGECKO_IDS[a]
+      const result = await fetchAssetData(a, cgId)
+      if (!result) return
 
-      if (priceRes.ok) {
-        const priceData = await priceRes.json()
-        const fetched = priceData[cgId]?.usd
-        if (fetched) { setLivePrice(fetched); setPrice(fetched) }
+      const { price, closes, vols, source } = result
+      setPriceSource(source)
+
+      if (price) { setLivePrice(price); setPrice(price) }
+
+      if (closes.length >= 15) {
+        const computedRsi = computeRSI(closes)
+        setLiveRsi(computedRsi)
+        setRsi(computedRsi)
       }
 
-      if (chartRes.ok) {
-        const chartData = await chartRes.json()
-        // RSI-14 from daily closing prices
-        const closes = (chartData.prices ?? []).map(([, p]) => p)
-        if (closes.length >= 15) {
-          const computedRsi = computeRSI(closes)
-          setLiveRsi(computedRsi)
-          setRsi(computedRsi)
-        }
-        // 24h volume change % from last two daily volume data points
-        const vols = (chartData.total_volumes ?? []).map(([, v]) => v)
-        if (vols.length >= 2) {
-          const prev = vols[vols.length - 2]
-          const curr = vols[vols.length - 1]
-          const pct = prev > 0 ? +((curr - prev) / prev * 100).toFixed(1) : 0
-          setLiveVolume(pct)
-          setVolumeChange(pct)
-        }
+      if (vols.length >= 2) {
+        const prev = vols[vols.length - 2]
+        const curr = vols[vols.length - 1]
+        const pct  = prev > 0 ? +((curr - prev) / prev * 100).toFixed(1) : 0
+        setLiveVolume(pct)
+        setVolumeChange(pct)
       }
     } catch {
       // silently ignore — user can still type manually
@@ -300,7 +289,9 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
             <label className="text-xs text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-2">
               Current Price (USD)
               {livePrice && (
-                <span className="text-emerald-500 text-xs font-mono font-bold">● LIVE</span>
+                <span className={`text-xs font-mono font-bold ${SOURCE_LABEL[priceSource]?.color ?? 'text-emerald-500'}`}>
+                  ● {SOURCE_LABEL[priceSource]?.text ?? 'LIVE'}
+                </span>
               )}
               <button
                 onClick={() => fetchLivePrice(asset)}
