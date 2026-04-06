@@ -81,6 +81,8 @@ class ProofOverride(BaseModel):
     proof_size_bytes: Optional[int] = None
     proof_generated_ms: Optional[int] = None  # milliseconds to generate proof
     proof_preimage: Optional[str] = None  # base64-encoded serialized preimage for /check
+    risk_committed: Optional[int] = None   # v2: stop_loss_pct + position_pct (sum only)
+    strategy_version: Optional[int] = 2   # v2 contract
 
 
 class TradeExecuteRequest(BaseModel):
@@ -101,7 +103,9 @@ async def generate_signal(req: SignalRequest):
         "direction (BUY or SELL), "
         "confidence (number 0-100), "
         "reasoning (2-3 sentence technical analysis explaining the signal), "
-        "risk_level (LOW/MEDIUM/HIGH)"
+        "risk_level (LOW/MEDIUM/HIGH), "
+        "stop_loss_pct (integer 1-20: recommended stop-loss as % of position value), "
+        "position_pct (integer 1-50: recommended portfolio allocation percentage)"
     )
     user_message = (
         f"Asset: {req.asset}\n"
@@ -145,6 +149,8 @@ async def execute_trade(req: TradeExecuteRequest):
             len(base64.b64decode(po.proof_bytes)) if po.proof_bytes else None
         )
         proof_gen_ms      = po.proof_generated_ms
+        risk_committed    = po.risk_committed
+        strategy_version  = po.strategy_version or 2
     else:
         hash_input        = f"{req.asset}{req.amount}{timestamp}MIDNIGHT_ZK"
         proof_hash        = hashlib.sha256(hash_input.encode()).hexdigest()
@@ -156,6 +162,8 @@ async def execute_trade(req: TradeExecuteRequest):
         proof_preimage_b64 = None
         proof_size        = None
         proof_gen_ms      = None
+        risk_committed    = None
+        strategy_version  = 2
 
     trade = {
         "trade_id": trade_id,
@@ -179,6 +187,8 @@ async def execute_trade(req: TradeExecuteRequest):
             "proof_preimage": proof_preimage_b64,
             "proof_size_bytes": proof_size,
             "proof_generated_ms": proof_gen_ms,
+            "risk_committed": risk_committed,
+            "strategy_version": strategy_version,
         },
     }
 
@@ -242,6 +252,8 @@ async def get_proof(trade_id: str):
         "proof_preimage":         proof.get("proof_preimage"),
         "proof_size_bytes":       proof.get("proof_size_bytes"),
         "proof_generated_ms":     proof.get("proof_generated_ms"),
+        "risk_committed":         proof.get("risk_committed"),
+        "strategy_version":       proof.get("strategy_version", 2),
         "asset":                  trade["asset"],
         "amount":                 trade["amount"],
         "timestamp":              proof["timestamp"],

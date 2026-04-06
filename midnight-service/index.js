@@ -140,10 +140,28 @@ app.post('/submit-proof', async (req, res) => {
     })
   }
 
-  // SHA-256 of AI reasoning — committed on-chain, text never disclosed
+  // ── v2 Risk parameter validation (circuit constraints enforced here) ──────
+  const stopLossPct  = Math.round(signal.stop_loss_pct  ?? 10)
+  const positionPct  = Math.round(signal.position_pct   ?? 20)
+
+  if (stopLossPct < 1 || stopLossPct > 20) {
+    return res.status(422).json({ error: `Stop-loss ${stopLossPct}% out of valid range (1–20%). v2 circuit will reject.` })
+  }
+  if (positionPct < 1 || positionPct > 50) {
+    return res.status(422).json({ error: `Position size ${positionPct}% out of valid range (1–50%). v2 circuit will reject.` })
+  }
+  if (signal.confidence + positionPct > 120) {
+    return res.status(422).json({
+      error: `Risk-adjusted sizing failed: confidence(${signal.confidence}) + position(${positionPct}) = ${signal.confidence + positionPct} > 120. Reduce position size.`,
+    })
+  }
+
+  // SHA-256 of ( AI reasoning | stop_loss_pct | position_pct )
+  // The hash commits to risk parameters without revealing them — a judge can verify
+  // the hash was computed with specific risk params once the whale discloses them.
   const reasoningHash = crypto
     .createHash('sha256')
-    .update(signal.reasoning ?? '')
+    .update(`${signal.reasoning ?? ''}|sl:${stopLossPct}|pos:${positionPct}`)
     .digest('hex')
 
   // ── Real ZK proof via proof server ────────────────────────────────────────
@@ -233,6 +251,9 @@ app.post('/submit-proof', async (req, res) => {
         proofPreimage: Buffer.from(preimage).toString('base64'),
         proofSizeBytes: proofBytes.length,
         proofGeneratedMs,
+        // v2 public fields (service-enforced, hash-committed)
+        riskCommitted:   stopLossPct + positionPct,
+        strategyVersion: 2,
       })
     } catch (err) {
       console.warn('[ZK] Real proof failed, falling back to mock:', err.message)
@@ -242,7 +263,11 @@ app.post('/submit-proof', async (req, res) => {
   // ── Fallback: SHA-256 mock proof ──────────────────────────────────────────
   const raw = `${asset}${amount}${timestamp}MIDNIGHT_ZK`
   const proofHash = crypto.createHash('sha256').update(raw).digest('hex')
-  return res.json({ proofHash, contractAddress: null, txHash: null, reasoningHash, mode: 'mock' })
+  return res.json({
+    proofHash, contractAddress: null, txHash: null, reasoningHash, mode: 'mock',
+    riskCommitted: stopLossPct + positionPct,
+    strategyVersion: 2,
+  })
 })
 
 // ── POST /verify-proof ────────────────────────────────────────────────────────

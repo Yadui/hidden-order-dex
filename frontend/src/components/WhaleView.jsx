@@ -208,6 +208,8 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
             proof_preimage:     proofResult.proofPreimage ?? null,
             proof_size_bytes:   proofResult.proofSizeBytes ?? null,
             proof_generated_ms: proofResult.proofGeneratedMs ?? null,
+            risk_committed:     proofResult.riskCommitted ?? null,
+            strategy_version:   proofResult.strategyVersion ?? 2,
           },
         }),
       })
@@ -219,6 +221,8 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
         contractAddress:  proofResult.contractAddress,
         proofSizeBytes:   proofResult.proofSizeBytes,
         proofGeneratedMs: proofResult.proofGeneratedMs,
+        riskCommitted:    proofResult.riskCommitted,
+        strategyVersion:  proofResult.strategyVersion ?? 2,
       })
       onTradeExecuted()
     } catch (e) {
@@ -427,6 +431,36 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
                 </div>
               </div>
 
+              {/* v2: private risk parameters — whale always sees their own values */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className={`rounded-lg border ${accentBorder} bg-slate-900/60 px-3 py-2`}>
+                  <div className="text-xs text-slate-500 mb-0.5 flex items-center gap-1">
+                    <Lock size={9} className={midnightEnabled ? 'text-violet-500' : 'text-red-500'} />
+                    Stop-Loss
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-mono font-bold text-sm ${midnightEnabled ? 'text-violet-300' : 'text-red-300'}`}>
+                      {signal.stop_loss_pct ?? 10}%
+                    </span>
+                    <span className="text-slate-600 text-xs font-mono">of position</span>
+                  </div>
+                  <div className="text-xs text-emerald-600 font-mono mt-0.5">🔒 private witness</div>
+                </div>
+                <div className={`rounded-lg border ${accentBorder} bg-slate-900/60 px-3 py-2`}>
+                  <div className="text-xs text-slate-500 mb-0.5 flex items-center gap-1">
+                    <Lock size={9} className={midnightEnabled ? 'text-violet-500' : 'text-red-500'} />
+                    Position Size
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-mono font-bold text-sm ${midnightEnabled ? 'text-violet-300' : 'text-red-300'}`}>
+                      {signal.position_pct ?? 20}%
+                    </span>
+                    <span className="text-slate-600 text-xs font-mono">of portfolio</span>
+                  </div>
+                  <div className="text-xs text-emerald-600 font-mono mt-0.5">🔒 private witness</div>
+                </div>
+              </div>
+
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Strategy Reasoning</p>
                 {/* Whale always sees their own reasoning — it's their strategy */}
@@ -592,6 +626,16 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
                     </span>
                   </div>
                 )}
+                {tradeResult.riskCommitted != null && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Risk Committed</span>
+                    <span className="text-amber-400 font-bold font-mono">{tradeResult.riskCommitted} <span className="text-slate-600 font-normal">sl+pos (sum only)</span></span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Contract Version</span>
+                  <span className="text-violet-400 font-mono">v{tradeResult.strategyVersion ?? 2}</span>
+                </div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">

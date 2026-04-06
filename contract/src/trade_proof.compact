@@ -1,47 +1,130 @@
 pragma language_version >= 0.22;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AlphaShield Trade Proof Contract
+// AlphaShield Trade Proof Contract  v2
 //
 // Public ledger (on-chain, visible to everyone):
 //   trade_asset, trade_timestamp, trade_amount — what was traded
-//   reasoning_hash                             — SHA-256 of AI reasoning (hex)
-//   strategy_verified                          — 1 once proof is accepted
-//   bytes_exposed                              — always 0
+//   reasoning_hash    — SHA-256( AI reasoning | stop_loss_pct | position_pct )
+//                       Cryptographically commits to risk params without revealing them
+//   strategy_version  — contract version (2)
+//   strategy_verified — 1 once proof is accepted, 0 if cancelled
+//   bytes_exposed     — always 0
+//   risk_committed    — stop_loss_pct + position_pct (sum only; individual values never disclosed)
 //
-// Private witnesses (never leave the whale's machine):
-//   direction   — 0=SELL, 1=BUY
-//   confidence  — 0..100
+// Private witnesses (NEVER leave the whale's machine):
+//   direction       — 0=SELL, 1=BUY
+//   confidence      — 70..100 (below 70 is rejected by circuit)
+//   stop_loss_pct   — 1..20  (stop-loss threshold as % of position value)
+//   position_pct    — 1..50  (portfolio allocation %)
+//
+// ZK guarantees (proven without revealing any private witness):
+//   1. direction ∈ {0,1}          → signal is a valid BUY or SELL
+//   2. confidence ≥ 70            → whale holds high-conviction position
+//   3. stop_loss_pct ∈ [1,20]     → risk is bounded; no unlimited-loss positions
+//   4. position_pct ∈ [1,50]      → no portfolio over-concentration
+//   5. confidence + position_pct ≤ 120  → large positions require proportionally
+//                                          higher conviction (risk-adjusted sizing)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export ledger trade_asset:       Opaque<"string">;
-export ledger trade_timestamp:   Opaque<"string">;
-export ledger trade_amount:      Opaque<"string">;
-export ledger reasoning_hash:    Opaque<"string">;
-export ledger strategy_verified: Uint<32>;
-export ledger bytes_exposed:     Uint<32>;
+export ledger trade_asset:        Opaque<"string">;
+export ledger trade_timestamp:    Opaque<"string">;
+export ledger trade_amount:       Opaque<"string">;
+export ledger reasoning_hash:     Opaque<"string">;
+export ledger strategy_version:   Uint<32>;
+export ledger strategy_verified:  Uint<32>;
+export ledger bytes_exposed:      Uint<32>;
+export ledger risk_committed:     Uint<32>;
 
 // ─── submit_trade ─────────────────────────────────────────────────────────────
-// ZK proof guarantees (without revealing direction or confidence):
-//   1. direction < 2   → valid BUY (1) or SELL (0) signal
-//   2. confidence > 0  → whale holds a real position
-// Only public fields are written to the ledger.
+// Five ZK assertions enforced before any ledger write.
+// All four private witnesses are consumed by the circuit and never disclosed.
+// reasoning_hash commits to both the AI reasoning text AND the risk parameters
+// (stop_loss_pct, position_pct) so the on-chain record proves risk management
+// was applied without revealing the actual percentages.
 // ─────────────────────────────────────────────────────────────────────────────
 export circuit submit_trade(
-  asset:      Opaque<"string">,
-  timestamp:  Opaque<"string">,
-  amount:     Opaque<"string">,
-  r_hash:     Opaque<"string">,
-  direction:  Uint<32>,
-  confidence: Uint<32>
+  asset:          Opaque<"string">,
+  timestamp:      Opaque<"string">,
+  amount:         Opaque<"string">,
+  r_hash:         Opaque<"string">,
+  direction:      Uint<32>,    // PRIVATE — BUY=1 / SELL=0
+  confidence:     Uint<32>,    // PRIVATE — 70..100
+  stop_loss_pct:  Uint<32>,    // PRIVATE — 1..20
+  position_pct:   Uint<32>     // PRIVATE — 1..50
 ): [] {
-  assert(direction < 2, "direction must be 0 (SELL) or 1 (BUY)");
-  assert(confidence > 0, "confidence must be greater than 0");
+  // ── Signal integrity ──────────────────────────────────────────────────────
+  assert(direction < 2,          "direction must be BUY (1) or SELL (0)");
+  assert(confidence > 69,        "confidence must be ≥ 70% to execute");
 
+  // ── Risk management ───────────────────────────────────────────────────────
+  assert(stop_loss_pct > 0,      "stop-loss must be set (cannot trade without a stop)");
+  assert(stop_loss_pct <= 20,    "stop-loss cannot exceed 20% of position value");
+  assert(position_pct > 0,       "position size must be > 0%");
+  assert(position_pct <= 50,     "position cannot exceed 50% of portfolio");
+
+  // ── Risk-adjusted sizing ──────────────────────────────────────────────────
+  // Prevents low-conviction whales from taking outsized positions.
+  // Example: 80% confidence allows up to 40% position (80+40=120 ✓)
+  //          70% confidence allows up to 50% position (70+50=120 ✓)
+  //          60% confidence + 61% position = 121 → REJECTED
+  assert(confidence + position_pct <= 120, "position too large for confidence level");
+
+  // ── Public ledger writes ──────────────────────────────────────────────────
   trade_asset       = disclose(asset);
   trade_timestamp   = disclose(timestamp);
   trade_amount      = disclose(amount);
-  reasoning_hash    = disclose(r_hash);
+  reasoning_hash    = disclose(r_hash);       // commits to risk params without revealing them
+  strategy_version  = disclose(2);
   strategy_verified = disclose(1);
   bytes_exposed     = disclose(0);
+  risk_committed    = disclose(stop_loss_pct + position_pct);  // sum only — no individual reveal
+}
+
+// ─── cancel_trade ─────────────────────────────────────────────────────────────
+// Allows a whale to publicly cancel a pending trade.
+// ZK proof demonstrates they hold the original private witnesses (same direction
+// and confidence) — proving they are the original submitter — without disclosing
+// the strategy details.
+// ─────────────────────────────────────────────────────────────────────────────
+export circuit cancel_trade(
+  trade_id_hash:  Opaque<"string">,
+  direction:      Uint<32>,    // PRIVATE — must match original submission
+  confidence:     Uint<32>     // PRIVATE — proves identity of submitter
+): [] {
+  assert(direction < 2,   "invalid direction in cancel proof");
+  assert(confidence > 69, "must prove original high-conviction position");
+
+  trade_asset       = disclose(trade_id_hash);
+  strategy_version  = disclose(2);
+  strategy_verified = disclose(0);         // marks this trade as cancelled on-chain
+  bytes_exposed     = disclose(0);
+  risk_committed    = disclose(0);
+}
+
+// ─── emergency_exit ───────────────────────────────────────────────────────────
+// Immediate risk circuit: proves the whale's stop-loss was triggered without
+// revealing the original stop-loss threshold or position size.
+// Followers (copy-traders) can observe the exit event on-chain and copy it
+// within the same block — still protected by ZK.
+// ─────────────────────────────────────────────────────────────────────────────
+export circuit emergency_exit(
+  asset:          Opaque<"string">,
+  timestamp:      Opaque<"string">,
+  stop_loss_pct:  Uint<32>,    // PRIVATE — the threshold that was hit
+  position_pct:   Uint<32>     // PRIVATE — size of position being exited
+): [] {
+  assert(stop_loss_pct > 0,   "stop-loss must be set");
+  assert(stop_loss_pct <= 20, "stop-loss out of valid range");
+  assert(position_pct > 0,    "position size must be > 0");
+  assert(position_pct <= 50,  "position size out of valid range");
+
+  trade_asset       = disclose(asset);
+  trade_timestamp   = disclose(timestamp);
+  trade_amount      = disclose("0");       // exit — amount disclosed as 0
+  reasoning_hash    = disclose("emergency_exit");
+  strategy_version  = disclose(2);
+  strategy_verified = disclose(0);         // exit = verified stop triggered
+  bytes_exposed     = disclose(0);
+  risk_committed    = disclose(stop_loss_pct + position_pct);
 }

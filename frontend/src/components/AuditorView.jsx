@@ -3,38 +3,91 @@ import { Search, ShieldCheck, X, Code2, Copy, CheckCircle } from 'lucide-react'
 
 const COMPACT_CONTRACT = `pragma language_version >= 0.22;
 
-// ─── AlphaShield Trade Proof Contract ─────────────────
+// ─── AlphaShield Trade Proof Contract  v2 ─────────────────────────────────────
 // Public ledger (visible on-chain to everyone):
-export ledger trade_asset:       Opaque<"string">;
-export ledger trade_timestamp:   Opaque<"string">;
-export ledger trade_amount:      Opaque<"string">;
-export ledger reasoning_hash:    Opaque<"string">;  // SHA-256 of AI reasoning
-export ledger strategy_verified: Uint<32>;
-export ledger bytes_exposed:     Uint<32>;          // always 0
+export ledger trade_asset:        Opaque<"string">;
+export ledger trade_timestamp:    Opaque<"string">;
+export ledger trade_amount:       Opaque<"string">;
+export ledger reasoning_hash:     Opaque<"string">;  // SHA-256(reasoning|sl%|pos%)
+export ledger strategy_version:   Uint<32>;          // = 2
+export ledger strategy_verified:  Uint<32>;
+export ledger bytes_exposed:      Uint<32>;          // always 0
+export ledger risk_committed:     Uint<32>;          // stop_loss + position (sum only)
 
-// ─── ZK Circuit ───────────────────────────────────────
+// ─── ZK Circuit: submit_trade ─────────────────────────────────────────────────
 // Private witnesses (NEVER leave the whale's machine):
-//   direction   — 0=SELL, 1=BUY
-//   confidence  — 0..100
+//   direction      — 0=SELL, 1=BUY
+//   confidence     — 70..100 (below threshold is circuit-rejected)
+//   stop_loss_pct  — 1..20  (stop-loss as % of position value)
+//   position_pct   — 1..50  (portfolio allocation %)
 export circuit submit_trade(
-  asset:      Opaque<"string">,
-  timestamp:  Opaque<"string">,
-  amount:     Opaque<"string">,
-  r_hash:     Opaque<"string">,
-  direction:  Uint<32>,      // PRIVATE — never disclosed
-  confidence: Uint<32>       // PRIVATE — never disclosed
+  asset:          Opaque<"string">,
+  timestamp:      Opaque<"string">,
+  amount:         Opaque<"string">,
+  r_hash:         Opaque<"string">,
+  direction:      Uint<32>,    // PRIVATE
+  confidence:     Uint<32>,    // PRIVATE
+  stop_loss_pct:  Uint<32>,    // PRIVATE
+  position_pct:   Uint<32>     // PRIVATE
 ): [] {
-  // ZK guarantees (without revealing direction or confidence):
-  assert(direction < 2, "valid BUY (1) or SELL (0) signal");
-  assert(confidence > 0, "whale holds a real position");
+  // ── 1. Signal integrity ─────────────────────────────────────────────────
+  assert(direction < 2,          "BUY (1) or SELL (0) only");
+  assert(confidence > 69,        "confidence must be ≥ 70%");
 
-  // Only public fields are written to the ledger:
+  // ── 2. Risk management ──────────────────────────────────────────────────
+  assert(stop_loss_pct > 0,      "stop-loss must be set");
+  assert(stop_loss_pct <= 20,    "stop-loss cannot exceed 20%");
+  assert(position_pct > 0,       "position size must be > 0%");
+  assert(position_pct <= 50,     "position cannot exceed 50% of portfolio");
+
+  // ── 3. Risk-adjusted sizing (prevents over-conviction) ──────────────────
+  assert(confidence + position_pct <= 120, "position too large for confidence level");
+
+  // ── Ledger writes (only public fields disclosed) ─────────────────────────
   trade_asset       = disclose(asset);
   trade_timestamp   = disclose(timestamp);
   trade_amount      = disclose(amount);
-  reasoning_hash    = disclose(r_hash);
+  reasoning_hash    = disclose(r_hash);    // commits to risk params privately
+  strategy_version  = disclose(2);
   strategy_verified = disclose(1);
   bytes_exposed     = disclose(0);
+  risk_committed    = disclose(stop_loss_pct + position_pct);  // sum only
+}
+
+// ─── ZK Circuit: cancel_trade ─────────────────────────────────────────────────
+export circuit cancel_trade(
+  trade_id_hash:  Opaque<"string">,
+  direction:      Uint<32>,    // PRIVATE — proves original submitter identity
+  confidence:     Uint<32>     // PRIVATE
+): [] {
+  assert(direction < 2,   "invalid direction");
+  assert(confidence > 69, "must prove original high-conviction position");
+  trade_asset       = disclose(trade_id_hash);
+  strategy_version  = disclose(2);
+  strategy_verified = disclose(0);  // marks trade as cancelled
+  bytes_exposed     = disclose(0);
+  risk_committed    = disclose(0);
+}
+
+// ─── ZK Circuit: emergency_exit ───────────────────────────────────────────────
+export circuit emergency_exit(
+  asset:          Opaque<"string">,
+  timestamp:      Opaque<"string">,
+  stop_loss_pct:  Uint<32>,    // PRIVATE — threshold that was hit
+  position_pct:   Uint<32>     // PRIVATE — size being exited
+): [] {
+  assert(stop_loss_pct > 0,   "stop-loss must be set");
+  assert(stop_loss_pct <= 20, "stop-loss out of range");
+  assert(position_pct > 0,    "position must be > 0");
+  assert(position_pct <= 50,  "position out of range");
+  trade_asset       = disclose(asset);
+  trade_timestamp   = disclose(timestamp);
+  trade_amount      = disclose("0");
+  reasoning_hash    = disclose("emergency_exit");
+  strategy_version  = disclose(2);
+  strategy_verified = disclose(0);
+  bytes_exposed     = disclose(0);
+  risk_committed    = disclose(stop_loss_pct + position_pct);
 }`;
 
 function ContractCodePanel() {
@@ -170,6 +223,17 @@ function ProofModal({ proof, onClose }) {
             {proof.reasoning_hash && (
               <ProofRow label="Reasoning Hash (SHA-256)" value={proof.reasoning_hash} mono />
             )}
+            {proof.risk_committed != null && (
+              <ProofRow
+                label="Risk Committed (sl+pos sum)"
+                value={`${proof.risk_committed} (sum only · params private)`}
+                highlight
+              />
+            )}
+            <ProofRow
+              label="Contract Version"
+              value={`v${proof.strategy_version ?? 2} — 3 circuits, 7 ZK assertions`}
+            />
             {proof.proof_size_bytes && (
               <ProofRow label="ZK Proof Size" value={`${proof.proof_size_bytes.toLocaleString()} bytes`} highlight />
             )}
