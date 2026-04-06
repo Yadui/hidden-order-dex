@@ -277,7 +277,10 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
                 <p className="text-slate-500 text-xs leading-relaxed">{entry.parsed.signal.reasoning}</p>
                 <div className="flex gap-2 pt-1">
                   <button
-                    onClick={() => onSignalParsed?.({ asset: entry.parsed.asset, amount: entry.parsed.amount ?? 1, signal: entry.parsed.signal })}
+                    onClick={() => {
+                      onSignalParsed?.({ asset: entry.parsed.asset, amount: entry.parsed.amount ?? 1, signal: entry.parsed.signal })
+                      document.getElementById('whale-signal-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
                     className={`flex-1 py-1.5 rounded text-xs font-bold transition-all border ${
                       midnightEnabled
                         ? 'border-violet-700 text-violet-300 hover:bg-violet-900/40'
@@ -287,7 +290,10 @@ export default function VibeTerminal({ midnightEnabled, onSignalParsed, onAutoEx
                     ✎ Edit in form
                   </button>
                   <button
-                    onClick={() => onAutoExecute?.(entry.parsed)}
+                    onClick={() => {
+                      onAutoExecute?.(entry.parsed)
+                      document.getElementById('whale-execute')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
                     disabled={disabled || !midnight?.submitProof}
                     className={`flex-1 py-1.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${accentBtn}`}
                   >

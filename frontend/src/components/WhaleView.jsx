@@ -325,7 +325,7 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Left: Signal Engine ─────────────────────────────────────────── */}
-        <div className={`rounded-xl border ${accentBorder} ${cardBg} p-6 space-y-5`}>
+        <div id="whale-signal-form" className={`rounded-xl border ${accentBorder} ${cardBg} p-6 space-y-5`}>
           <div className="flex items-center gap-2">
             <Cpu size={18} className={midnightEnabled ? 'text-violet-400' : 'text-red-400'} />
             <h2 className="text-lg font-bold text-white">AI Signal Engine</h2>
@@ -554,7 +554,7 @@ export default function WhaleView({ midnightEnabled, onTradeExecuted, midnight }
         </div>
 
         {/* ── Right: Execute Trade ─────────────────────────────────────────── */}
-        <div className={`rounded-xl border ${accentBorder} ${cardBg} p-6 space-y-5`}>
+        <div id="whale-execute" className={`rounded-xl border ${accentBorder} ${cardBg} p-6 space-y-5`}>
           <div className="flex items-center gap-2">
             {midnightEnabled
               ? <Lock size={18} className="text-violet-400" />
