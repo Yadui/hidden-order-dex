@@ -14,7 +14,17 @@ const TIMEFRAMES = [
   { label: '1M',  days: 30 },
   { label: '3M',  days: 90 },
 ]
-
+// Supported display currencies (all converted client-side from USD base prices)
+const CURRENCIES = [
+  { code: 'USD', symbol: '$',  locale: 'en-US' },
+  { code: 'EUR', symbol: '€',  locale: 'de-DE' },
+  { code: 'GBP', symbol: '£',  locale: 'en-GB' },
+  { code: 'JPY', symbol: '¥',  locale: 'ja-JP' },
+  { code: 'AUD', symbol: 'A$', locale: 'en-AU' },
+  { code: 'CAD', symbol: 'C$', locale: 'en-CA' },
+  { code: 'CHF', symbol: 'Fr', locale: 'de-CH' },
+  { code: 'INR', symbol: '₹',  locale: 'en-IN' },
+]
 // ── Formatters ────────────────────────────────────────────────────────────────
 function fmtUsd(n) {
   if (n == null) return '—'
@@ -29,7 +39,22 @@ function fmtPrice(p) {
   if (p >= 1000) return '$' + p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return '$' + p.toFixed(p < 1 ? 4 : 2)
 }
+// Currency-aware formatters
+function fmtFiatPrice(p, cur) {
+  if (p == null) return '—'
+  const sym = cur.symbol
+  if (p >= 1000) return sym + p.toLocaleString(cur.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return sym + p.toFixed(p < 0.01 ? 6 : p < 1 ? 4 : 2)
+}
 
+function fmtFiatLarge(n, cur) {
+  if (n == null) return '—'
+  const sym = cur.symbol
+  if (Math.abs(n) >= 1e12) return sym + (n / 1e12).toFixed(2) + 'T'
+  if (Math.abs(n) >= 1e9)  return sym + (n / 1e9).toFixed(2)  + 'B'
+  if (Math.abs(n) >= 1e6)  return sym + (n / 1e6).toFixed(2)  + 'M'
+  return sym + n.toLocaleString(cur.locale, { maximumFractionDigits: 2 })
+}
 // ── Sparkline (row mini chart) ────────────────────────────────────────────────
 function Sparkline({ prices, width = 120, height = 38, positive }) {
   if (!prices || prices.length < 2) {
@@ -389,6 +414,9 @@ function CoinDetailModal({ coin, onClose, onSelectAsset, midnightEnabled }) {
 }
 
 // ── MarketOverview (main export) ──────────────────────────────────────────────
+const FX_CACHE_KEY = 'alphashield_fx_rates'
+const FX_CACHE_TTL = 10 * 60 * 1000 // 10 min
+
 export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
   const [coins,        setCoins]       = useState([])
   const [loading,      setLoading]     = useState(true)
@@ -399,6 +427,42 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
   const [searchHits,   setSearchHits]  = useState([])
   const [searchBusy,   setSearchBusy]  = useState(false)
   const [searchOpen,   setSearchOpen]  = useState(false)
+  const [currency,     setCurrency]    = useState(CURRENCIES[0])  // default USD
+  const [fxRates,      setFxRates]     = useState({ USD: 1 })     // USD-based rates
+
+  // Fetch FX rates once on mount (and on currency change if stale)
+  async function loadFxRates() {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(FX_CACHE_KEY) ?? 'null')
+      if (cached && Date.now() - cached.ts < FX_CACHE_TTL) {
+        setFxRates(cached.rates)
+        return
+      }
+    } catch { /* ignore */ }
+    try {
+      const codes = CURRENCIES.map(c => c.code.toLowerCase()).join(',')
+      // Use USDT (stable $1) as the pivot to get all fiat rates
+      const res = await fetch(`/coingecko/simple/price?ids=tether&vs_currencies=${codes}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const raw  = data?.tether ?? {}
+      // raw gives us 1 USDT in each currency, which == USD→fiat rate
+      const rates = { USD: 1 }
+      for (const c of CURRENCIES) {
+        if (c.code !== 'USD') rates[c.code] = raw[c.code.toLowerCase()] ?? 1
+      }
+      setFxRates(rates)
+      sessionStorage.setItem(FX_CACHE_KEY, JSON.stringify({ ts: Date.now(), rates }))
+    } catch { /* FX fetch failed, stay in USD */ }
+  }
+
+  useEffect(() => { loadFxRates() }, [])
+
+  // Convert USD value to selected currency
+  function toFiat(usdValue) {
+    if (usdValue == null) return null
+    return usdValue * (fxRates[currency.code] ?? 1)
+  }
 
   async function fetchMarkets() {
     try {
@@ -469,7 +533,25 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
               <span className="text-red-400 text-xs font-mono">⚠ all sources failed</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Currency selector */}
+            <div className="flex items-center gap-1">
+              {CURRENCIES.map(cur => (
+                <button
+                  key={cur.code}
+                  onClick={() => setCurrency(cur)}
+                  className={`px-1.5 py-0.5 rounded text-xs font-mono font-bold transition-all ${
+                    currency.code === cur.code
+                      ? midnightEnabled
+                        ? 'bg-violet-800/70 text-violet-200 border border-violet-600'
+                        : 'bg-red-800/70 text-red-200 border border-red-600'
+                      : 'text-slate-600 hover:text-slate-400 border border-transparent'
+                  }`}
+                >
+                  {cur.code}
+                </button>
+              ))}
+            </div>
             {lastUpdated && (
               <span className="text-slate-600 text-xs font-mono">
                 {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -600,7 +682,7 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
 
               {/* Price */}
               <span className="text-white text-sm font-mono font-bold text-right">
-                {fmtPrice(coin.current_price)}
+                {fmtFiatPrice(toFiat(coin.current_price), currency)}
               </span>
 
               {/* 24h % */}
@@ -615,7 +697,7 @@ export default function MarketOverview({ midnightEnabled, onSelectAsset }) {
 
               {/* 24h Volume */}
               <span className="text-slate-400 text-xs font-mono text-right">
-                {fmtUsd(coin.total_volume)}
+                {fmtFiatLarge(toFiat(coin.total_volume), currency)}
               </span>
 
               {/* Sparkline */}
